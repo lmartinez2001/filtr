@@ -1,0 +1,4 @@
+type: cosine
+eta_min: 1.0e-6
+start_factor: 0.1
+warmup_epochs: 5

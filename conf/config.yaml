@@ -1,0 +1,15 @@
+defaults:
+  - _self_
+  - dataset: donut
+  - model: filtr
+  - optimizer: adamw
+  - training: default
+  - scheduler: cosine
+  - baseline: dgcnn # Used for end to end experiments
+
+exp_name: ???
+output_dir: experiments
+end2end: false
+
+device: "cuda"
+seed: 42

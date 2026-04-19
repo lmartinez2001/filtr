@@ -1,0 +1,4 @@
+_target_: models.baselines.DGCNN
+k: 20
+emb_dims: 256
+dropout: 0.5

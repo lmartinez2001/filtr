@@ -1,0 +1,5 @@
+epochs: 200
+batch_size: 64
+clip_max_norm: 10.0
+eval_every: 10
+num_workers: 1

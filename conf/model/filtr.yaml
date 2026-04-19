@@ -1,0 +1,40 @@
+is_end2end: false
+
+network:
+  _target_: models.filtr.FILTR
+  num_queries: 500
+  in_feature_dim: 384
+  aux_loss: false
+  use_layer_norm_adapter: true
+
+  decoder:
+    _target_: models.pd_transformer.Transformer
+    d_model: 256
+    nhead: 8
+    num_decoder_layers: 6
+    dim_feedforward: 1024
+    dropout: 0.1
+    normalize_before: true
+    return_intermediate_dec: false
+    activation: relu
+
+criterion:
+  _target_: models.filtr.SetCriterion
+
+  matcher:
+    _target_: models.pd_matcher.HungarianMatcherPersistence
+    cost_coord: 1.0
+    cost_no_exist: 0.1
+    use_exist_in_assignment: true
+    use_cpu: true
+  
+  weight_dict:
+    recon: 1.0
+    existence: 0.1
+    diag: 0.1
+
+  # one (or seveveral) of : recon, existence, diag, w2
+  losses:
+    - "existence"
+    - "recon"
+    - "diag"

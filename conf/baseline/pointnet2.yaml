@@ -1,0 +1,3 @@
+_target_: models.baselines.PointNet2
+in_channels: 3 # Adjust based on input features (e.g. 3 for RGB, 0 if just coords)
+full: true     # or false

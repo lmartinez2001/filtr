@@ -1,0 +1,27 @@
+defaults:
+  - _self_
+
+backbone: pbert
+
+_common_params_: &common_params
+  _target_: datasets.donut.Donut
+  
+  root: data/donut
+  token_key: patch_tokens # feature to use for each block
+  pos_embed_key: patch_pos_embeddings # key to retrieve positional embeddings from features dictionary
+  diagram_key: pd1 # key of the diagram targets in diagram directory
+  quantile_alpha: 0.1 # threshold to filter persistence features
+  block_features_key: layer_features # key to retrieve block features from features dictionary
+  use_intermediate_blocks: true # whether to use intermediate block features from, or just the last block
+  backbone: ${..backbone}
+  n_blocks: 12
+
+train:
+  <<: *common_params
+  split: train
+  index_filename: train_out2048_in1024_${..backbone}_reduced.json # metadata file for training # FOR REBUTTALS
+
+val:
+  <<: *common_params
+  split: val
+  index_filename: val_out2048_in1024_${..backbone}_reduced.json # metadata file for validation
