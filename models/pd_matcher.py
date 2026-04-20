@@ -52,6 +52,15 @@ class HungarianMatcherPersistence(nn.Module):
             gt_pairs = targets[sample]["pairs"]  # [M_sample, 2]
             pred_pairs = out_pairs[sample]       # [N, 2]
             M_sample = gt_pairs.shape[0]
+            N_sample = pred_pairs.shape[0]
+
+            if M_sample == 0 or N_sample == 0:
+                indices.append((
+                    torch.empty(0, dtype=torch.long, device=device),
+                    torch.empty(0, dtype=torch.long, device=device)
+                ))
+                continue
+
             # Compute squared L2 distance between gt pairs and predicted pairs
             cost_reg = torch.cdist(gt_pairs, pred_pairs, p=2) ** 2  # [M_sample, N]
 

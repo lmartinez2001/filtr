@@ -44,23 +44,34 @@ def plot_persistence_diagrams(outputs: dict, targets: list, idx: int = 0) -> plt
     fig, (a1, a2) = plt.subplots(1, 2, figsize=(12,6))
     fig.suptitle(f"{len(gt_pairs)} GT pairs, {len(pred_pairs_filt)} Predicted pairs")
     
-    a1.scatter(*gt_pairs.T, label='Ground Truth', s=20, alpha=0.6)
-    a1.scatter(*pred_pairs.T, label='Predictions', s=20, alpha=0.6)
+    if len(gt_pairs) > 0:
+        a1.scatter(*gt_pairs.T, label='Ground Truth', s=20, alpha=0.6)
+    if len(pred_pairs) > 0:
+        a1.scatter(*pred_pairs.T, label='Predictions', s=20, alpha=0.6)
     a1.set_xlabel('birth')
     a1.set_ylabel('death')
     a1.set_title('All predicted pairs')
-    a1.legend()
+    handles, labels = a1.get_legend_handles_labels()
+    if handles:
+        a1.legend()
 
-    a2.scatter(*gt_pairs.T, label='Ground Truth', s=20, alpha=0.6)
-    a2.scatter(*pred_pairs_filt.T, label='Predictions', s=20, alpha=0.6)
+    if len(gt_pairs) > 0:
+        a2.scatter(*gt_pairs.T, label='Ground Truth', s=20, alpha=0.6)
+    if len(pred_pairs_filt) > 0:
+        a2.scatter(*pred_pairs_filt.T, label='Predictions', s=20, alpha=0.6)
     a2.set_xlabel('birth')
     a2.set_ylabel('death')
     a2.set_title('Zoomed in predicted pairs')
-    a2.legend()
+    handles, labels = a2.get_legend_handles_labels()
+    if handles:
+        a2.legend()
     plt.close(fig)
     return fig
 
 def h1_threshold_quantile(D, alpha=0.01):
+    if D.size == 0:
+        return D.reshape(0, 2), 0.0
+
     L = D[:, 1] - D[:, 0]
     tau = np.quantile(L, 1 - alpha)
     keep = L >= tau

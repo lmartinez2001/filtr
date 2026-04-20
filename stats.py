@@ -11,6 +11,15 @@ def process_sample(sample_path, quantile = None):
     pd = data["pd1"]
     if quantile is not None:
         pd, _ = utils.h1_threshold_quantile(pd, quantile)
+
+    if len(pd) == 0:
+        stats = {
+            "length": 0,
+            "max": np.nan,
+            "min": np.nan,
+        }
+        return sample_path, stats
+
     stats = {
         "length": len(pd),
         "max": np.max(pd),

@@ -230,15 +230,16 @@ class SetCriterion(nn.Module):
         # Number of pairs for each gt diagram, since they have different sizes
         num_pairs_list = [targets[b]["pairs"].shape[0] for b in range(bs)]
         num_pairs = torch.tensor(sum(num_pairs_list), dtype=torch.float, device=device)
+        normalizer = num_pairs.clamp_min(1.0)
 
         losses = {}
         # ==> Wasserstein-2 loss between persistence diagrams
         if "w2" in self.losses:
-            w2_loss = self.wasserstein2_loss(outputs=outputs, targets=targets, indices=None, num_pairs=num_pairs)
+            w2_loss = self.wasserstein2_loss(outputs=outputs, targets=targets, indices=None, num_pairs=normalizer)
             losses.update(w2_loss)
 
         for loss_name in self.losses: # existence, recon, diag, ...
-            losses.update(self.get_loss(loss_name, outputs, targets, indices, num_pairs))
+            losses.update(self.get_loss(loss_name, outputs, targets, indices, normalizer))
 
         # ==> Weight
         losses = {k: v * self.weight_dict[k] for k, v in losses.items()}
@@ -251,13 +252,18 @@ class SetCriterion(nn.Module):
         
         target_exist = torch.zeros_like(pred_exist)
         idx = self._get_src_permutation_idx(indices)
-        target_exist[idx] = 1.0
+        if idx[0].numel() > 0:
+            target_exist[idx] = 1.0
 
         pos_count = target_exist.sum(dim=1)
         neg_count = Q - pos_count
         
-        # w_neg calculation (Constraint: pos > 0 is guaranteed)
-        w_neg = pos_count / (neg_count + 1e-6)
+        # Keep a meaningful negative-only signal when a sample has no GT pairs.
+        w_neg = torch.where(
+            pos_count > 0,
+            pos_count / (neg_count + 1e-6),
+            torch.ones_like(pos_count)
+        )
         
         # Broadcast weights: w_pos=1.0, w_neg varies per sample
         w = torch.ones_like(pred_exist)
@@ -278,6 +284,8 @@ class SetCriterion(nn.Module):
     def reconstruction_loss(self, outputs, targets, indices, num_pairs):
         # 1. Align Predictions
         src_idx = self._get_src_permutation_idx(indices) # Tuple(Batch_idx, Pred_idx)
+        if src_idx[0].numel() == 0:
+            return {"recon": outputs["pred_pairs"].sum() * 0.0}
         src_pairs = outputs["pred_pairs"][src_idx]       # (Total_Matched, 2)
 
         # 2. Align Targets
@@ -302,6 +310,8 @@ class SetCriterion(nn.Module):
         
         # Select all unmatched pairs across the entire batch at once
         unmatched = pred_pairs[mask] # (Total_Unmatched, 2)
+        if unmatched.numel() == 0:
+            return {"diag": pred_pairs.sum() * 0.0}
         
         # Constraint Check: Preds > GT, so unmatched is never empty.
         
@@ -316,8 +326,16 @@ class SetCriterion(nn.Module):
     def _get_src_permutation_idx(self, indices):
         # Merges list of lists into two tensors: batch indices and src indices
         # [(P0, T0), (P1, T1)] -> ([0, 0, ..., 1, 1, ...], [P0..., P1...])
-        batch_idx = torch.cat([torch.full_like(src, i) for i, (src, _) in enumerate(indices)])
-        src_idx = torch.cat([src for (src, _) in indices])
+        src_tensors = [src for (src, _) in indices if src.numel() > 0]
+        if not src_tensors:
+            device = indices[0][0].device if indices else torch.device("cpu")
+            empty_idx = torch.empty(0, dtype=torch.long, device=device)
+            return empty_idx, empty_idx
+
+        batch_idx = torch.cat([
+            torch.full_like(src, i) for i, (src, _) in enumerate(indices) if src.numel() > 0
+        ])
+        src_idx = torch.cat(src_tensors)
         return batch_idx, src_idx
 
     # def existence_loss(self, outputs, targets, indices, num_pairs):
