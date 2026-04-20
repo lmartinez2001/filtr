@@ -6,3 +6,4 @@ num_workers: 1
 resume_from: null
 load_weights_only: false
 strict_checkpoint_load: true
+deterministic: true

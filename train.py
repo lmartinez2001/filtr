@@ -32,7 +32,9 @@ def main(cfg: DictConfig):
     wandb.init(project="FILTR-test", config=OmegaConf.to_container(cfg, resolve=True), name=cfg.exp_name)
     logger = StepLogger()
     device = torch.device(cfg.device)
-    set_seed(cfg.seed)
+    set_seed(cfg.seed, deterministic=cfg.training.deterministic)
+    data_loader_generator = torch.Generator()
+    data_loader_generator.manual_seed(cfg.seed)
 
     model = instantiate(cfg.model.network)
     model.to(device)
@@ -51,7 +53,9 @@ def main(cfg: DictConfig):
         shuffle=True,
         drop_last=True,
         collate_fn=train_set.collate_fn, 
-        num_workers=cfg.training.num_workers
+        num_workers=cfg.training.num_workers,
+        worker_init_fn=seed_worker,
+        generator=data_loader_generator,
     )
     
     val_set = instantiate(cfg.dataset.val)
@@ -61,7 +65,9 @@ def main(cfg: DictConfig):
         shuffle=False,
         drop_last=True, # To change later on
         collate_fn=val_set.collate_fn, 
-        num_workers=cfg.training.num_workers
+        num_workers=cfg.training.num_workers,
+        worker_init_fn=seed_worker,
+        generator=data_loader_generator,
     )
 
     lr_scheduler = build_scheduler(optimizer=optimizer, cfg=cfg, steps_per_epoch=len(train_loader))
@@ -244,10 +250,26 @@ def load_checkpoint(
     return start_epoch
 
 
-def set_seed(seed: int):
+def set_seed(seed: int, deterministic: bool = False):
     torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
     random.seed(seed)
+
+    if deterministic:
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        torch.use_deterministic_algorithms(True, warn_only=True)
+    else:
+        torch.backends.cudnn.deterministic = False
+        torch.backends.cudnn.benchmark = True
+
+
+def seed_worker(worker_id: int):
+    worker_seed = torch.initial_seed() % (2 ** 32)
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
 
 if __name__ == "__main__":
     main()
