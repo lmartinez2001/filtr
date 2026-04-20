@@ -9,7 +9,7 @@ import numpy as np
 import util.misc as utils
 
 from pathlib import Path
-from hydra.utils import instantiate
+from hydra.utils import instantiate, to_absolute_path
 from torch.utils.data import DataLoader
 from omegaconf import DictConfig, OmegaConf
 from util.monitor import get_model_complexity_info, get_e2e_model_complexity_info
@@ -59,12 +59,26 @@ def main(cfg: DictConfig):
         val_set, 
         batch_size=cfg.training.batch_size, 
         shuffle=False,
-        drop_last=True, 
+        drop_last=True, # To change later on
         collate_fn=val_set.collate_fn, 
         num_workers=cfg.training.num_workers
     )
 
     lr_scheduler = build_scheduler(optimizer=optimizer, cfg=cfg, steps_per_epoch=len(train_loader))
+    start_epoch = 0
+
+    if cfg.training.resume_from is not None:
+        checkpoint_path = Path(to_absolute_path(cfg.training.resume_from))
+        start_epoch = load_checkpoint(
+            checkpoint_path=checkpoint_path,
+            model=model,
+            optimizer=optimizer,
+            scheduler=lr_scheduler,
+            logger=logger,
+            device=device,
+            weights_only=cfg.training.load_weights_only,
+            strict=cfg.training.strict_checkpoint_load,
+        )
 
     output_dir = Path(cfg.output_dir) / cfg.exp_name
     if output_dir:
@@ -89,7 +103,7 @@ def main(cfg: DictConfig):
     start_time = time.time()
     total_epochs = cfg.training.epochs
     track_cuda_memory = device.type == "cuda"
-    for epoch in range(total_epochs):
+    for epoch in range(start_epoch, total_epochs):
         # print(f"==> Starting epoch {epoch+1}/{total_epochs}")
         if track_cuda_memory:
             torch.cuda.reset_accumulated_memory_stats(device)
@@ -186,8 +200,48 @@ def build_scheduler(optimizer: torch.optim.Optimizer, cfg: DictConfig, steps_per
         print("[TRAINING] No scheduler is used.")
         scheduler = None
     else:
-        raise ValueError(f"Unknown scheduler type: {cfg.type}")
+        raise ValueError(f"Unknown scheduler type: {cfg.scheduler.type}")
     return scheduler
+
+
+def load_checkpoint(
+    checkpoint_path: Path,
+    model: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    scheduler,
+    logger: StepLogger,
+    device: torch.device,
+    weights_only: bool,
+    strict: bool,
+) -> int:
+    if not checkpoint_path.exists():
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+
+    print(f"[TRAINING] Loading checkpoint from {checkpoint_path}")
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    model.load_state_dict(checkpoint["model"], strict=strict)
+
+    if weights_only:
+        print("[TRAINING] Loaded model weights only.")
+        return 0
+
+    optimizer_state = checkpoint.get("optimizer")
+    if optimizer_state is not None:
+        optimizer.load_state_dict(optimizer_state)
+
+    scheduler_state = checkpoint.get("lr_scheduler")
+    if scheduler_state is not None:
+        if scheduler is None:
+            print("[TRAINING] Checkpoint contains scheduler state but current config disables the scheduler. Skipping scheduler restore.")
+        else:
+            scheduler.load_state_dict(scheduler_state)
+    elif scheduler is not None:
+        print("[TRAINING] No scheduler state found in checkpoint. Continuing with a fresh scheduler.")
+
+    logger.global_step = checkpoint.get("global_step", 0)
+    start_epoch = checkpoint.get("epoch", -1) + 1
+    print(f"[TRAINING] Resuming from epoch {start_epoch} with global step {logger.global_step}")
+    return start_epoch
 
 
 def set_seed(seed: int):
