@@ -29,10 +29,10 @@ def train_one_epoch(model: Module,
     n_batches = len(data_loader) # Assumes drop_last=True in DataLoader
     meters = defaultdict(float)
 
-    for inputs, targets in tqdm(data_loader, desc=f"Epoch {epoch+1}", unit="batch", total=n_batches):
-        tokens = inputs["tokens"].to(device)
-        pos_embeddings = inputs["pos_embeddings"].to(device)
-        targets = [{k: v.to(device) for k, v in t.items()} for t in targets] # list of dicts containing "pairs"
+    for batch in tqdm(data_loader, desc=f"Epoch {epoch+1}", unit="batch", total=n_batches):
+        tokens = batch["tokens"].to(device)
+        pos_embeddings = batch["pos_embeddings"].to(device)
+        targets = [{"pairs": pairs.to(device)} for pairs in batch["pairs"]]
 
         outputs = model(features=tokens, pos=pos_embeddings)
         loss_dict = criterion(outputs, targets) # {existence: ..., recon: ..., }
@@ -82,9 +82,9 @@ def train_one_epoch_end2end(model: Module,
     n_batches = len(data_loader)
     meters = defaultdict(float)
 
-    for inputs, targets in tqdm(data_loader, desc=f"Epoch {epoch+1}", unit="batch", total=n_batches):
-        inputs = inputs.to(device)
-        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+    for batch in tqdm(data_loader, desc=f"Epoch {epoch+1}", unit="batch", total=n_batches):
+        inputs = batch["pcd"].to(device)
+        targets = [{"pairs": pairs.to(device)} for pairs in batch["pairs"]]
 
         outputs = model(inputs)
         loss_dict = criterion(outputs, targets)
@@ -131,10 +131,10 @@ def evaluate(model: Module,
     n_batches = len(data_loader)
     meters = defaultdict(float)
 
-    for inputs, targets in tqdm(data_loader, desc="Evaluation", unit="batch", total=n_batches):
-        tokens = inputs["tokens"].to(device)
-        pos_embeddings = inputs["pos_embeddings"].to(device)
-        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+    for batch in tqdm(data_loader, desc="Evaluation", unit="batch", total=n_batches):
+        tokens = batch["tokens"].to(device)
+        pos_embeddings = batch["pos_embeddings"].to(device)
+        targets = [{"pairs": pairs.to(device)} for pairs in batch["pairs"]]
 
         outputs = model(features=tokens, pos=pos_embeddings)
         loss_dict = criterion(outputs, targets)
@@ -167,9 +167,9 @@ def evaluate_end2end(model: Module,
     n_batches = len(data_loader)
     meters = defaultdict(float)
 
-    for inputs, targets in tqdm(data_loader, desc="Evaluation", unit="batch", total=n_batches):
-        inputs = inputs.to(device)
-        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+    for batch in tqdm(data_loader, desc="Evaluation", unit="batch", total=n_batches):
+        inputs = batch["pcd"].to(device)
+        targets = [{"pairs": pairs.to(device)} for pairs in batch["pairs"]]
 
         outputs = model(inputs)
         loss_dict = criterion(outputs, targets)
