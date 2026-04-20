@@ -88,9 +88,11 @@ def main(cfg: DictConfig):
     print(f"[TRAINING] Starting training for {cfg.training.epochs} epochs")
     start_time = time.time()
     total_epochs = cfg.training.epochs
+    track_cuda_memory = device.type == "cuda"
     for epoch in range(total_epochs):
         # print(f"==> Starting epoch {epoch+1}/{total_epochs}")
-        torch.cuda.reset_accumulated_memory_stats(device)
+        if track_cuda_memory:
+            torch.cuda.reset_accumulated_memory_stats(device)
         epoch_start = time.time()
         
         if cfg.model.get("is_end2end", False):
@@ -119,7 +121,7 @@ def main(cfg: DictConfig):
         log_payload = {f"train_epoch/{k}": v for k, v in train_stats.items()}
         log_payload["train_epoch/epoch_duration"] = epoch_duration
         
-        if epoch == 0:
+        if epoch == 0 and track_cuda_memory:
             max_mem_gb = torch.cuda.max_memory_allocated(device) / (1024 ** 3)
             print(f"[TRAINING] Max memory allocated: {max_mem_gb:.2f} GB")
 
