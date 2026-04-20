@@ -205,7 +205,7 @@ class SetCriterion(nn.Module):
                  weight_dict: dict, 
                  losses: list):
         super().__init__()
-        if not set(losses).issubset({"existence", "recon", "diag", "wass2", "sinkhorn_w2"}):
+        if not set(losses).issubset({"existence", "recon", "diag", "w2"}):
             raise ValueError(f"Losses {losses} not recognized")
 
         self.matcher = matcher
