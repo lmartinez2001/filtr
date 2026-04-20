@@ -1,9 +1,13 @@
 from concurrent.futures import ProcessPoolExecutor, as_completed
+import logging
 import numpy as np
 from tqdm import tqdm
 import os
 from collections import defaultdict
 import util.misc as utils
+from util.logging_utils import configure_logging
+
+logger = logging.getLogger(__name__)
 
 def process_sample(sample_path, quantile = None):
     # Placeholder for processing logic
@@ -28,16 +32,17 @@ def process_sample(sample_path, quantile = None):
     return sample_path, stats
 
 def main(args):
+    configure_logging()
     input_dir = args.input_dir
     output_file = args.output_file
     quantile = args.quantile
     
     samples = os.listdir(input_dir)
-    print(f"==> Found {len(samples)} samples in {input_dir}")
+    logger.info("Found %s samples in %s", len(samples), input_dir)
     paths  = [os.path.join(input_dir, sample) for sample in samples]
 
     all_stats = defaultdict(list)
-    print(f"==> Processing samples...")
+    logger.info("Processing samples...")
     with ProcessPoolExecutor(max_workers=8) as executor:
         futures = [executor.submit(process_sample, sample_path, quantile) for sample_path in paths]
 
@@ -47,7 +52,7 @@ def main(args):
                 all_stats[key].append(value)
 
     # Save all_stats to output_file
-    print(f"==> Saving statistics to {output_file}")
+    logger.info("Saving statistics to %s", output_file)
     np.savez_compressed(output_file, **all_stats)
 
 

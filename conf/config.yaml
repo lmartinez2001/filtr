@@ -5,6 +5,7 @@ defaults:
   - optimizer: adamw
   - training: default
   - scheduler: cosine
+  - logger: default
   - baseline: dgcnn # Used for end to end experiments
 
 exp_name: ???

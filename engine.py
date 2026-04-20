@@ -2,6 +2,7 @@
 import os
 import sys
 import math
+import logging
 import torch
 import util.misc as utils
 
@@ -12,6 +13,8 @@ from torch.optim import Optimizer
 from collections import defaultdict
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import _LRScheduler
+
+logger = logging.getLogger(__name__)
 
 
 def train_one_epoch(model: Module, 
@@ -42,8 +45,8 @@ def train_one_epoch(model: Module,
         batch_stats["total_loss"] = total_loss.item()
 
         if not math.isfinite(total_loss):
-            print(f"Loss is {total_loss}, stopping training")
-            print(loss_dict)
+            logger.error("Loss is %s, stopping training", total_loss)
+            logger.error("Loss breakdown: %s", loss_dict)
             sys.exit(1)
 
         optimizer.zero_grad()
@@ -95,8 +98,8 @@ def train_one_epoch_end2end(model: Module,
         batch_stats["total_loss"] = total_loss.item()
 
         if not math.isfinite(total_loss):
-            print(f"Loss is {total_loss}, stopping training")
-            print(loss_dict)
+            logger.error("Loss is %s, stopping training", total_loss)
+            logger.error("Loss breakdown: %s", loss_dict)
             sys.exit(1)
 
         optimizer.zero_grad()

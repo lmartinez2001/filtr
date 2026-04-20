@@ -1,9 +1,12 @@
 import torch
+import logging
 import torch.nn as nn
 import torch.nn.functional as F
 
 from torch import Tensor
 from scipy.optimize import linear_sum_assignment
+
+logger = logging.getLogger(__name__)
 
 
 class FILTR(nn.Module):
@@ -29,7 +32,7 @@ class FILTR(nn.Module):
         hidden_dim = decoder.d_model
         self.use_layer_norm_adapter = use_layer_norm_adapter
 
-        print(f"[MODEL] FILTR initialized with {num_queries} queries")
+        logger.info("FILTR initialized with %s queries", num_queries)
 
         # Query embeddings that carry per persistence pair information (coords and existence)
         self.query_embed = nn.Embedding(num_queries, hidden_dim)
@@ -43,7 +46,7 @@ class FILTR(nn.Module):
         self.exist_embed = nn.Linear(hidden_dim, 1)
 
         if self.use_layer_norm_adapter:
-            print("[MODEL] Using LayerNorm adapter after input projection")
+            logger.info("Using LayerNorm adapter after input projection")
             self.src_proj_norm = nn.LayerNorm(hidden_dim, eps=1e-6)
 
         # Use auxiliary decoder losses
@@ -130,7 +133,7 @@ class FILTREnd2End(nn.Module):
         self.decoder = decoder # final decoder 
         hidden_dim = decoder.d_model
 
-        print(f"[MODEL] FILTR initialized with {num_queries} queries")
+        logger.info("FILTR initialized with %s queries", num_queries)
 
         # Query embeddings that carry per persistence pair information (coords and existence²)
         self.query_embed = nn.Embedding(num_queries, hidden_dim)

@@ -1,10 +1,13 @@
 import torch
 import numpy as np
+import logging
 
 from typing import Any, Dict, Tuple
 
 from datasets.base import BasePointCloudDataset, BaseTokenDataset
 from datasets.utils import pc_norm
+
+logger = logging.getLogger(__name__)
 
 
 class Donut(BaseTokenDataset):
@@ -39,7 +42,7 @@ class Donut(BaseTokenDataset):
             n_blocks=n_blocks,
         )
 
-        print(f"[DATASET] ({split}) Using {self.backbone} backbone")
+        logger.info("(%s) Using %s backbone", split, self.backbone)
     
     def get_record(self, idx: int) -> Dict[str, Any]:
         return self.records[idx]

@@ -1,5 +1,8 @@
+import logging
 import torch
 from fvcore.nn import FlopCountAnalysis
+
+logger = logging.getLogger(__name__)
 
 def get_model_complexity_info(model, tokens, pos):
     model.eval()
@@ -22,13 +25,13 @@ def get_model_complexity_info(model, tokens, pos):
             return f"{value / 1e3:.2f} K{unit}"
         return f"{value} {unit}"
 
-    print(f"--- Model Complexity Audit ---")
-    print(f"Input Shape:      {tuple(tokens.shape)}")
-    print(f"Total MACs:       {format_metric(mac_count, 'MACs')}")
-    print(f"Total FLOPs:      {format_metric(total_flops, 'FLOPs')} (Standard: 2*MACs)")
-    print(f"Params (Total):   {format_metric(params_total, 'Pts')}")
-    print(f"Params (Train):   {format_metric(params_trainable, 'Pts')}")
-    print("-" * 30)
+    logger.info("--- Model Complexity Audit ---")
+    logger.info("Input Shape:      %s", tuple(tokens.shape))
+    logger.info("Total MACs:       %s", format_metric(mac_count, 'MACs'))
+    logger.info("Total FLOPs:      %s (Standard: 2*MACs)", format_metric(total_flops, 'FLOPs'))
+    logger.info("Params (Total):   %s", format_metric(params_total, 'Pts'))
+    logger.info("Params (Train):   %s", format_metric(params_trainable, 'Pts'))
+    logger.info("%s", "-" * 30)
     return total_flops, params_trainable
 
 
@@ -53,11 +56,11 @@ def get_e2e_model_complexity_info(model, inputs):
             return f"{value / 1e3:.2f} K{unit}"
         return f"{value} {unit}"
 
-    print(f"--- Model Complexity Audit (End-to-End) ---")
-    print(f"Input Shape:      {tuple(inputs.shape)}")
-    print(f"Total MACs:       {format_metric(mac_count, 'MACs')}")
-    print(f"Total FLOPs:      {format_metric(total_flops, 'FLOPs')} (Standard: 2*MACs)")
-    print(f"Params (Total):   {format_metric(params_total, 'Pts')}")
-    print(f"Params (Train):   {format_metric(params_trainable, 'Pts')}")
-    print("-" * 30)
+    logger.info("--- Model Complexity Audit (End-to-End) ---")
+    logger.info("Input Shape:      %s", tuple(inputs.shape))
+    logger.info("Total MACs:       %s", format_metric(mac_count, 'MACs'))
+    logger.info("Total FLOPs:      %s (Standard: 2*MACs)", format_metric(total_flops, 'FLOPs'))
+    logger.info("Params (Total):   %s", format_metric(params_total, 'Pts'))
+    logger.info("Params (Train):   %s", format_metric(params_trainable, 'Pts'))
+    logger.info("%s", "-" * 30)
     return total_flops, params_trainable

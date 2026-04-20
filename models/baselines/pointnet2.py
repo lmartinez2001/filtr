@@ -1,6 +1,9 @@
+import logging
 import torch.nn as nn
 import torch.nn.functional as F
 from .pointnet2_utils import PointNetSetAbstraction
+
+logger = logging.getLogger(__name__)
 
 
 class PointNet2(nn.Module):
@@ -9,9 +12,9 @@ class PointNet2(nn.Module):
         self.full = full
 
         if full:
-            print("[MODEL] Using FULL PointNet2 Backbone")
+            logger.info("Using FULL PointNet2 Backbone")
         else:
-            print("[MODEL] Using LIGHTWEIGHT PointNet2 Backbone")
+            logger.info("Using LIGHTWEIGHT PointNet2 Backbone")
 
         self.sa1 = PointNetSetAbstraction(
             npoint=512,
@@ -55,4 +58,3 @@ class PointNet2(nn.Module):
             l2_xyz = l2_xyz.transpose(1, 2)  # (B, N, 3)
             return l2_points, l2_xyz
     
-

@@ -1,10 +1,10 @@
 import time
 import yaml
-import wandb
 import torch
 import hydra
 import random
 import datetime
+import logging
 import numpy as np
 import util.misc as utils
 
@@ -12,25 +12,80 @@ from pathlib import Path
 from hydra.utils import instantiate, to_absolute_path
 from torch.utils.data import DataLoader
 from omegaconf import DictConfig, OmegaConf
+from util.logging_utils import configure_logging
 from util.monitor import get_model_complexity_info, get_e2e_model_complexity_info
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from engine import evaluate, train_one_epoch, evaluate_end2end, train_one_epoch_end2end
 
+try:
+    import wandb
+except ImportError:
+    wandb = None
+
+logger = logging.getLogger(__name__)
+
 class StepLogger():
-    def __init__(self):
+    def __init__(self, run_logger):
         self.global_step = 0
+        self.run_logger = run_logger
 
     def __call__(self, stats: dict):
         log_payload = {f"train_step/{k}": v for k, v in stats.items()}
-        wandb.log(log_payload, step=self.global_step)
+        self.run_logger.log(log_payload, step=self.global_step)
         self.global_step += 1
+
+
+class DefaultLogger:
+    def __init__(self):
+        self.summary = {}
+
+    def log(self, payload: dict, step: int | None = None, commit: bool = True):
+        return None
+
+    def image(self, figure):
+        return figure
+
+    def finish(self):
+        return None
+
+
+class WandbLogger:
+    def __init__(self, project: str, config: dict, run_name: str):
+        if wandb is None:
+            raise ImportError("Weights & Biases is not installed. Install `wandb` or set logger=default.")
+
+        self.run = wandb.init(project=project, config=config, name=run_name)
+        self.summary = self.run.summary
+
+    def log(self, payload: dict, step: int | None = None, commit: bool = True):
+        wandb.log(payload, step=step, commit=commit)
+
+    def image(self, figure):
+        return wandb.Image(figure)
+
+    def finish(self):
+        wandb.finish()
+
+
+def build_logger(cfg: DictConfig):
+    logger_name = cfg.logger.name
+    if logger_name == "default":
+        logger.info("Using default logger (no external tracking).")
+        return DefaultLogger()
+    if logger_name == "wandb":
+        return WandbLogger(
+            project=cfg.logger.project,
+            config=OmegaConf.to_container(cfg, resolve=True),
+            run_name=cfg.exp_name,
+        )
+    raise ValueError(f"Unknown logger type: {logger_name}")
 
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
 def main(cfg: DictConfig):    
-
-    wandb.init(project="FILTR-test", config=OmegaConf.to_container(cfg, resolve=True), name=cfg.exp_name)
-    logger = StepLogger()
+    configure_logging()
+    run_logger = build_logger(cfg)
+    step_logger = StepLogger(run_logger)
     device = torch.device(cfg.device)
     set_seed(cfg.seed, deterministic=cfg.training.deterministic)
     data_loader_generator = torch.Generator()
@@ -80,7 +135,7 @@ def main(cfg: DictConfig):
             model=model,
             optimizer=optimizer,
             scheduler=lr_scheduler,
-            logger=logger,
+            step_logger=step_logger,
             device=device,
             weights_only=cfg.training.load_weights_only,
             strict=cfg.training.strict_checkpoint_load,
@@ -88,7 +143,7 @@ def main(cfg: DictConfig):
 
     output_dir = Path(cfg.output_dir) / cfg.exp_name
     if output_dir:
-        print("==> creating output dir:", output_dir)
+        logger.info("Creating output dir: %s", output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
         with open(output_dir / "config.yaml", "w") as f:
             yaml.dump(OmegaConf.to_container(cfg, resolve=True), f)
@@ -103,9 +158,9 @@ def main(cfg: DictConfig):
         get_model_complexity_info(model=model, tokens=dummy_tokens, pos=dummy_pos)
 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print("[TRAINING] Number of training params:", n_parameters)
-    print("[TRAINING] Using losses:", "".join([f"{loss}, " for loss in criterion.losses]))
-    print(f"[TRAINING] Starting training for {cfg.training.epochs} epochs")
+    logger.info("Number of training params: %s", n_parameters)
+    logger.info("Using losses: %s", "".join([f"{loss}, " for loss in criterion.losses]))
+    logger.info("Starting training for %s epochs", cfg.training.epochs)
     start_time = time.time()
     total_epochs = cfg.training.epochs
     track_cuda_memory = device.type == "cuda"
@@ -124,7 +179,7 @@ def main(cfg: DictConfig):
                                                   device=device, 
                                                   epoch=epoch, 
                                                   max_norm=cfg.training.clip_max_norm,
-                                                  log_batch_metrics=logger)
+                                                  log_batch_metrics=step_logger)
         else:
             train_stats = train_one_epoch(model=model, 
                                         criterion=criterion, 
@@ -134,7 +189,7 @@ def main(cfg: DictConfig):
                                         device=device, 
                                         epoch=epoch, 
                                         max_norm=cfg.training.clip_max_norm,
-                                        log_batch_metrics=logger)
+                                        log_batch_metrics=step_logger)
         
         epoch_duration = time.time() - epoch_start
 
@@ -143,9 +198,9 @@ def main(cfg: DictConfig):
         
         if epoch == 0 and track_cuda_memory:
             max_mem_gb = torch.cuda.max_memory_allocated(device) / (1024 ** 3)
-            print(f"[TRAINING] Max memory allocated: {max_mem_gb:.2f} GB")
+            logger.info("Max memory allocated: %.2f GB", max_mem_gb)
 
-        wandb.log(log_payload, step=logger.global_step)
+        run_logger.log(log_payload, step=step_logger.global_step)
 
         # ==> Save checkpoints
         checkpoint_paths = [output_dir / "last.pth"]
@@ -157,14 +212,14 @@ def main(cfg: DictConfig):
                 "optimizer": optimizer.state_dict(),
                 "lr_scheduler": lr_scheduler.state_dict() if lr_scheduler is not None else None,
                 "epoch": epoch,
-                "global_step": logger.global_step,
+                "global_step": step_logger.global_step,
             }, checkpoint_path)
 
 
         # ==> Evauation 
         val_stats = None
         if epoch % cfg.training.eval_every == 0:
-            print("==> Starting evaluation")
+            logger.info("Starting evaluation")
             if cfg.model.get("is_end2end", False):
                 val_stats, figs = evaluate_end2end(model=model, 
                                                   criterion=criterion, 
@@ -175,16 +230,15 @@ def main(cfg: DictConfig):
                                         criterion=criterion, 
                                         data_loader=val_loader, 
                                         device=device)
-            wandb.log({f"val/{k}": v for k, v in val_stats.items()}, step=logger.global_step, commit=False)
-            wandb.log({"val/diagrams": [wandb.Image(fig) for fig in figs]}, step=logger.global_step)
+            run_logger.log({f"val/{k}": v for k, v in val_stats.items()}, step=step_logger.global_step, commit=False)
+            run_logger.log({"val/diagrams": [run_logger.image(fig) for fig in figs]}, step=step_logger.global_step)
 
 
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    # log total time to wandb as a summary metric
-    wandb.run.summary["total_training_time"] = total_time_str
-    print(f"Training time {total_time_str}")
-    wandb.finish()
+    run_logger.summary["total_training_time"] = total_time_str
+    logger.info("Training time %s", total_time_str)
+    run_logger.finish()
 
 
 def build_scheduler(optimizer: torch.optim.Optimizer, cfg: DictConfig, steps_per_epoch: int):
@@ -203,7 +257,7 @@ def build_scheduler(optimizer: torch.optim.Optimizer, cfg: DictConfig, steps_per
         scheduler = SequentialLR(optimizer=optimizer, 
                                  schedulers=[warmup_scheduler, main_scheduler], milestones=[warmup_steps])
     elif cfg.scheduler.type == "none":
-        print("[TRAINING] No scheduler is used.")
+        logger.info("No scheduler is used.")
         scheduler = None
     else:
         raise ValueError(f"Unknown scheduler type: {cfg.scheduler.type}")
@@ -215,7 +269,7 @@ def load_checkpoint(
     model: torch.nn.Module,
     optimizer: torch.optim.Optimizer,
     scheduler,
-    logger: StepLogger,
+    step_logger: StepLogger,
     device: torch.device,
     weights_only: bool,
     strict: bool,
@@ -223,12 +277,12 @@ def load_checkpoint(
     if not checkpoint_path.exists():
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
 
-    print(f"[TRAINING] Loading checkpoint from {checkpoint_path}")
+    logger.info("Loading checkpoint from %s", checkpoint_path)
     checkpoint = torch.load(checkpoint_path, map_location=device)
     model.load_state_dict(checkpoint["model"], strict=strict)
 
     if weights_only:
-        print("[TRAINING] Loaded model weights only.")
+        logger.info("Loaded model weights only.")
         return 0
 
     optimizer_state = checkpoint.get("optimizer")
@@ -238,15 +292,15 @@ def load_checkpoint(
     scheduler_state = checkpoint.get("lr_scheduler")
     if scheduler_state is not None:
         if scheduler is None:
-            print("[TRAINING] Checkpoint contains scheduler state but current config disables the scheduler. Skipping scheduler restore.")
+            logger.warning("Checkpoint contains scheduler state but current config disables the scheduler. Skipping scheduler restore.")
         else:
             scheduler.load_state_dict(scheduler_state)
     elif scheduler is not None:
-        print("[TRAINING] No scheduler state found in checkpoint. Continuing with a fresh scheduler.")
+        logger.warning("No scheduler state found in checkpoint. Continuing with a fresh scheduler.")
 
-    logger.global_step = checkpoint.get("global_step", 0)
+    step_logger.global_step = checkpoint.get("global_step", 0)
     start_epoch = checkpoint.get("epoch", -1) + 1
-    print(f"[TRAINING] Resuming from epoch {start_epoch} with global step {logger.global_step}")
+    logger.info("Resuming from epoch %s with global step %s", start_epoch, step_logger.global_step)
     return start_epoch
 
 

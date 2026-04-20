@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -9,6 +10,8 @@ import torch
 import torch.utils.data as data
 
 import util.misc as utils
+
+logger = logging.getLogger(__name__)
 
 
 class BaseDataset(data.Dataset):
@@ -82,7 +85,7 @@ class BaseTokenDataset(BaseDataset):
             raise ValueError(f"Unknown backbone: {self.backbone}")
 
         if use_intermediate_blocks:
-            print(f"[DATASET] Using intermediate block features from backbone '{self.backbone}'")
+            logger.info("Using intermediate block features from backbone '%s'", self.backbone)
 
     def _intermediate_blocks_collate(self, features: np.ndarray) -> torch.Tensor:
         final_feat = []
