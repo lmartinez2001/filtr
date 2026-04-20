@@ -1,4 +1,6 @@
-# FILTR
+<h1 align="center">FILTR: Extracting Topological Features from Pretrained 3D Models</h1>
+
+<p align="center"><strong>CVPR 2026 (Oral)</strong></p>
 
 <p align="center">
   <a href="https://filtr-topology.github.io/">
@@ -15,11 +17,13 @@
   </a>
 </p>
 
-Official repository for **FILTR: Extracting Topological Features from Pretrained 3D Models**.
+## Overview
 
-The paper has been accepted to **CVPR 2026** as an **oral presentation**.
+FILTR is the first model to extract persistence diagrams from pretrained point-cloud encoder features in a feed-forward manner. More details, code, and training/inference instructions will be added soon. In the meantime, please visit the [project website](https://filtr-topology.github.io/) and the [Donut dataset page](https://huggingface.co/datasets/LouisM2001/donut).
 
-More details, code, and training/inference instructions will be added soon. In the meantime, please visit the [project website](https://filtr-topology.github.io/) and the [Donut dataset page](https://huggingface.co/datasets/LouisM2001/donut).
+<p align="center">
+  <img src="static/model.png" alt="FILTR model overview">
+</p>
 
 ## Citation
 
