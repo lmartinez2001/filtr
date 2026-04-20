@@ -133,7 +133,7 @@ def main(cfg: DictConfig):
             torch.save({
                 "model": model.state_dict(),
                 "optimizer": optimizer.state_dict(),
-                "lr_scheduler": lr_scheduler.state_dict(),
+                "lr_scheduler": lr_scheduler.state_dict() if lr_scheduler is not None else None,
                 "epoch": epoch,
                 "global_step": logger.global_step,
             }, checkpoint_path)
