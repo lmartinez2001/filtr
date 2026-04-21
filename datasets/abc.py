@@ -1,11 +1,14 @@
 from __future__ import annotations
-from typing import Dict, Tuple
+from typing import Dict
 
 import torch
 import numpy as np
+import logging
 
 from datasets.base import BasePointCloudDataset, BaseTokenDataset
 from datasets.utils import pc_norm
+
+logger = logging.getLogger(__name__)
 
 
 class ABCFilt(BaseTokenDataset):
@@ -38,7 +41,9 @@ class ABCFilt(BaseTokenDataset):
             supported_backbones={"pmae", "pbert", "pgpt", "pcpmae"},
         )
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+        logger.info("(%s) Using %s backbone", split, self.backbone)
+
+    def __getitem__(self, idx: int):
         rec = self.records[idx]
         sample_id = rec.get("id", str(idx))
 
@@ -54,11 +59,13 @@ class ABCFilt(BaseTokenDataset):
         pos_embeddings = torch.from_numpy(features[self.pos_embed_key]).float()
         pairs = self._load_pairs(rec, sample_id)
 
-        target: Dict[str, torch.Tensor] = {
+        data: Dict[str, torch.Tensor] = {
+            "tokens": tokens,
+            "pos_embeddings": pos_embeddings,
             "pairs": pairs,
         }
 
-        return tokens, pos_embeddings, target
+        return data
 
 
 class ABCFiltEnd2End(BasePointCloudDataset):
@@ -78,7 +85,7 @@ class ABCFiltEnd2End(BasePointCloudDataset):
             quantile_alpha=quantile_alpha,
         )
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+    def __getitem__(self, idx: int):
         rec = self.records[idx]
         sample_id = rec.get("id", str(idx))
 
@@ -89,8 +96,9 @@ class ABCFiltEnd2End(BasePointCloudDataset):
         pcd = pc_norm(pcd)
         pairs = self._load_pairs(rec, sample_id)
 
-        target: Dict[str, torch.Tensor] = {
+        data: Dict[str, torch.Tensor] = {
+            "pcd": pcd,
             "pairs": pairs,
         }
 
-        return pcd, target
+        return data
