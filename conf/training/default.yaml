@@ -7,3 +7,5 @@ resume_from: null
 load_weights_only: false
 strict_checkpoint_load: true
 deterministic: true
+best_metric: total_loss
+best_mode: min

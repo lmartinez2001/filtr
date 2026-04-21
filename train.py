@@ -127,6 +127,9 @@ def main(cfg: DictConfig):
 
     lr_scheduler = build_scheduler(optimizer=optimizer, cfg=cfg, steps_per_epoch=len(train_loader))
     start_epoch = 0
+    best_metric_name = cfg.training.best_metric
+    best_mode = cfg.training.best_mode
+    best_metric_value = float("inf") if best_mode == "min" else float("-inf")
 
     if cfg.training.resume_from is not None:
         checkpoint_path = Path(to_absolute_path(cfg.training.resume_from))
@@ -140,6 +143,10 @@ def main(cfg: DictConfig):
             weights_only=cfg.training.load_weights_only,
             strict=cfg.training.strict_checkpoint_load,
         )
+        if not cfg.training.load_weights_only:
+            resumed_best_metric = load_best_metric(checkpoint_path)
+            if resumed_best_metric is not None:
+                best_metric_value = resumed_best_metric
 
     output_dir = Path(cfg.output_dir) / cfg.exp_name
     if output_dir:
@@ -207,13 +214,17 @@ def main(cfg: DictConfig):
         if epoch % cfg.training.eval_every == 0:
             checkpoint_paths.append(output_dir / f"checkpoint{epoch:04}.pth")
         for checkpoint_path in checkpoint_paths:
-            torch.save({
-                "model": model.state_dict(),
-                "optimizer": optimizer.state_dict(),
-                "lr_scheduler": lr_scheduler.state_dict() if lr_scheduler is not None else None,
-                "epoch": epoch,
-                "global_step": step_logger.global_step,
-            }, checkpoint_path)
+            save_checkpoint(
+                checkpoint_path=checkpoint_path,
+                model=model,
+                optimizer=optimizer,
+                scheduler=lr_scheduler,
+                epoch=epoch,
+                global_step=step_logger.global_step,
+                best_metric_name=best_metric_name,
+                best_mode=best_mode,
+                best_metric_value=best_metric_value,
+            )
 
 
         # ==> Evauation 
@@ -232,6 +243,44 @@ def main(cfg: DictConfig):
                                         device=device)
             run_logger.log({f"val/{k}": v for k, v in val_stats.items()}, step=step_logger.global_step, commit=False)
             run_logger.log({"val/diagrams": [run_logger.image(fig) for fig in figs]}, step=step_logger.global_step)
+
+            current_metric_value = val_stats.get(best_metric_name)
+            if current_metric_value is None:
+                logger.warning(
+                    "Best-checkpoint metric '%s' not found in validation stats. Skipping best checkpoint update.",
+                    best_metric_name,
+                )
+            elif is_better_metric(current_metric_value, best_metric_value, best_mode):
+                best_metric_value = current_metric_value
+                best_checkpoint_path = output_dir / "best.pth"
+                save_checkpoint(
+                    checkpoint_path=best_checkpoint_path,
+                    model=model,
+                    optimizer=optimizer,
+                    scheduler=lr_scheduler,
+                    epoch=epoch,
+                    global_step=step_logger.global_step,
+                    best_metric_name=best_metric_name,
+                    best_mode=best_mode,
+                    best_metric_value=best_metric_value,
+                )
+                save_checkpoint(
+                    checkpoint_path=output_dir / "last.pth",
+                    model=model,
+                    optimizer=optimizer,
+                    scheduler=lr_scheduler,
+                    epoch=epoch,
+                    global_step=step_logger.global_step,
+                    best_metric_name=best_metric_name,
+                    best_mode=best_mode,
+                    best_metric_value=best_metric_value,
+                )
+                logger.info(
+                    "Saved new best checkpoint to %s using %s=%s",
+                    best_checkpoint_path,
+                    best_metric_name,
+                    best_metric_value,
+                )
 
 
     total_time = time.time() - start_time
@@ -302,6 +351,47 @@ def load_checkpoint(
     start_epoch = checkpoint.get("epoch", -1) + 1
     logger.info("Resuming from epoch %s with global step %s", start_epoch, step_logger.global_step)
     return start_epoch
+
+
+def load_best_metric(checkpoint_path: Path):
+    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    best_metric_value = checkpoint.get("best_metric_value")
+    best_checkpoint_path = checkpoint_path.parent / "best.pth"
+    if best_checkpoint_path.exists():
+        best_checkpoint = torch.load(best_checkpoint_path, map_location="cpu")
+        best_metric_value = best_checkpoint.get("best_metric_value", best_metric_value)
+    return best_metric_value
+
+
+def save_checkpoint(
+    checkpoint_path: Path,
+    model: torch.nn.Module,
+    optimizer: torch.optim.Optimizer,
+    scheduler,
+    epoch: int,
+    global_step: int,
+    best_metric_name: str,
+    best_mode: str,
+    best_metric_value: float,
+):
+    torch.save({
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "lr_scheduler": scheduler.state_dict() if scheduler is not None else None,
+        "epoch": epoch,
+        "global_step": global_step,
+        "best_metric_name": best_metric_name,
+        "best_metric_mode": best_mode,
+        "best_metric_value": best_metric_value,
+    }, checkpoint_path)
+
+
+def is_better_metric(current_value: float, best_value: float, mode: str) -> bool:
+    if mode == "min":
+        return current_value < best_value
+    if mode == "max":
+        return current_value > best_value
+    raise ValueError(f"Unknown best metric mode: {mode}")
 
 
 def set_seed(seed: int, deterministic: bool = False):
