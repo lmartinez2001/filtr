@@ -236,11 +236,6 @@ class SetCriterion(nn.Module):
         normalizer = num_pairs.clamp_min(1.0)
 
         losses = {}
-        # ==> Wasserstein-2 loss between persistence diagrams
-        if "w2" in self.losses:
-            w2_loss = self.wasserstein2_loss(outputs=outputs, targets=targets, indices=None, num_pairs=normalizer)
-            losses.update(w2_loss)
-
         for loss_name in self.losses: # existence, recon, diag, ...
             losses.update(self.get_loss(loss_name, outputs, targets, indices, normalizer))
 
@@ -457,7 +452,8 @@ class SetCriterion(nn.Module):
         loss2func = {
             "existence": self.existence_loss, 
             "recon": self.reconstruction_loss,
-            "diag": self.diagonal_loss
+            "diag": self.diagonal_loss,
+            "w2": self.wasserstein2_loss,
             }
         return loss2func[loss_name](outputs, targets, indices, num_pairs)
 
