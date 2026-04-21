@@ -1,6 +1,4 @@
 # Code adapted from DETR (https://github.com/facebookresearch/detr)
-import os
-import sys
 import math
 import logging
 import torch
@@ -15,6 +13,10 @@ from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import _LRScheduler
 
 logger = logging.getLogger(__name__)
+
+
+class NonFiniteLossError(RuntimeError):
+    """Raised when training encounters a non-finite loss value."""
 
 
 def train_one_epoch(model: Module, 
@@ -45,9 +47,11 @@ def train_one_epoch(model: Module,
         batch_stats["total_loss"] = total_loss.item()
 
         if not math.isfinite(total_loss):
-            logger.error("Loss is %s, stopping training", total_loss)
+            logger.error("Non-finite loss detected at epoch %s", epoch + 1)
             logger.error("Loss breakdown: %s", loss_dict)
-            sys.exit(1)
+            raise NonFiniteLossError(
+                f"Non-finite loss detected during training at epoch {epoch + 1}: {total_loss.item()}"
+            )
 
         optimizer.zero_grad()
         total_loss.backward()
@@ -98,9 +102,11 @@ def train_one_epoch_end2end(model: Module,
         batch_stats["total_loss"] = total_loss.item()
 
         if not math.isfinite(total_loss):
-            logger.error("Loss is %s, stopping training", total_loss)
+            logger.error("Non-finite loss detected at epoch %s", epoch + 1)
             logger.error("Loss breakdown: %s", loss_dict)
-            sys.exit(1)
+            raise NonFiniteLossError(
+                f"Non-finite loss detected during training at epoch {epoch + 1}: {total_loss.item()}"
+            )
 
         optimizer.zero_grad()
         losses.backward()
