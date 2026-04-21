@@ -160,8 +160,23 @@ def main(cfg: DictConfig):
         dummy_pts = torch.randn(1, 1024, 3).to(device)
         get_e2e_model_complexity_info(model=model, inputs=dummy_pts)
     else:
-        dummy_tokens = torch.randn(1, cfg.model.network.num_queries, cfg.model.network.in_feature_dim).to(device)
-        dummy_pos = torch.randn_like(dummy_tokens).to(device)
+        sample = train_set[0]
+        token_shape = sample["tokens"].shape
+        pos_shape = sample["pos_embeddings"].shape
+
+        if token_shape[-1] != cfg.model.network.in_feature_dim:
+            raise ValueError(
+                "Configured in_feature_dim does not match dataset features: "
+                f"config={cfg.model.network.in_feature_dim}, dataset={token_shape[-1]}"
+            )
+        if pos_shape[-1] != token_shape[-1]:
+            raise ValueError(
+                "Token and positional embedding feature dimensions must match for FLOPs audit: "
+                f"tokens={token_shape[-1]}, pos={pos_shape[-1]}"
+            )
+
+        dummy_tokens = torch.randn(1, *token_shape).to(device)
+        dummy_pos = torch.randn(1, *pos_shape).to(device)
         get_model_complexity_info(model=model, tokens=dummy_tokens, pos=dummy_pos)
 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
