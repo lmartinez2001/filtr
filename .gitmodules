@@ -1,5 +1,5 @@
-[submodule "third_party/poinbert"]
-	path = third_party/poinbert
+[submodule "third_party/pointbert"]
+	path = third_party/pointbert
 	url = https://github.com/Julie-tang00/Point-BERT.git
 [submodule "third_party/pointmae"]
 	path = third_party/pointmae
