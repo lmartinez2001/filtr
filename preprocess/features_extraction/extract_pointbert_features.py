@@ -30,6 +30,33 @@ from models.Point_BERT import Point_BERT
 from utils.config import cfg_from_yaml_file
  
 
+def resolve_model_config_path(model_config: str) -> Path:
+    config_path = Path(model_config).expanduser()
+    if config_path.is_absolute():
+        return config_path
+
+    cwd_config = Path.cwd() / config_path
+    if cwd_config.exists():
+        return cwd_config.resolve()
+
+    pointbert_config = POINTBERT_ROOT / config_path
+    if pointbert_config.exists():
+        return pointbert_config.resolve()
+
+    return cwd_config.resolve()
+
+
+def load_pointbert_config(model_config: str):
+    """Load PointBERT config while resolving upstream _base_ paths correctly."""
+    config_path = resolve_model_config_path(model_config)
+    original_cwd = Path.cwd()
+    try:
+        os.chdir(POINTBERT_ROOT)
+        return cfg_from_yaml_file(str(config_path))
+    finally:
+        os.chdir(original_cwd)
+
+
 class PointBERTFeatureExtractor:
 
     def __init__(self, config, pretrained_path):
@@ -278,9 +305,9 @@ if __name__ == "__main__":
     pcd_dir = args.pcd_dir
     output_dir = args.output_dir
 
-    print(f"==> Launch this script from the repository root: {POINTBERT_ROOT.parents[1]}")
+    print(f"==> Resolving PointBERT config includes from: {POINTBERT_ROOT}")
 
-    config = cfg_from_yaml_file(args.model_config)
+    config = load_pointbert_config(args.model_config)
     config.model.dvae_config.ckpt = args.dvae_ckpt
     output_resolution = args.out_points
     config.model.dvae_config.num_group = output_resolution // config.model.dvae_config.group_size

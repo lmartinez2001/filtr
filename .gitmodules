@@ -13,3 +13,6 @@
 [submodule "third_party/point2vec"]
 	path = third_party/point2vec
 	url = https://github.com/karimknaebel/point2vec.git
+[submodule "pointbert"]
+	path = pointbert
+	url = https://github.com/Julie-tang00/Point-BERT.git
