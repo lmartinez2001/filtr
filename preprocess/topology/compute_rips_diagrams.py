@@ -1,8 +1,8 @@
-import os
 import numpy as np
 
 from tqdm import tqdm
 from pathlib import Path
+from typing import NamedTuple
 from gudhi import RipsComplex
 from datasets.utils import pc_norm
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -14,7 +14,12 @@ from preprocess.topology.utils import (
 )
 
 
-def compute_rips_features(
+class SampleResult(NamedTuple):
+    is_success: bool
+    sample_name: str
+
+
+def compute_rips_diagrams(
     points: np.ndarray, max_edge_length: float, max_dimension: int
 ):
     rips_complex = RipsComplex(points=points, max_edge_length=max_edge_length)
@@ -35,7 +40,7 @@ def process_sample(
     output_dir: str,
     max_edge_length: float,
     max_dimension: int,
-) -> tuple:
+) -> SampleResult:
     """Process a single point cloud. Takes the path to high-res (8192) pcd and computes persistence diagrams."""
     try:
         sample_name = Path(pcd_path).stem
@@ -43,23 +48,23 @@ def process_sample(
         validate_point_cloud_array(points, sample_name)
         points = pc_norm(points)
 
-        pds = compute_rips_features(
+        pds = compute_rips_diagrams(
             points,
             max_edge_length=max_edge_length,
             max_dimension=max_dimension,
         )
 
         save_persistence_diagrams(
-            os.path.join(output_dir, f"{sample_name}.npz"),
+            str(Path(output_dir) / f"{sample_name}.npz"),
             pds,
             dimensions=(0, 1),
         )
 
     except Exception as e:
         print(f"Failed to process sample {sample_name}: {e}")
-        return False, sample_name
+        return SampleResult(False, sample_name)
 
-    return True, ""
+    return SampleResult(True, "")
 
 
 def main(args) -> None:
@@ -69,7 +74,7 @@ def main(args) -> None:
     max_dimension = args.max_dimension
     split_file = args.split_file
 
-    os.makedirs(output_dir, exist_ok=True)
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
     if split_file is None:
         points = [path.name for path in sorted(Path(input_dir).glob("*.npy"))]
     else:
@@ -83,7 +88,7 @@ def main(args) -> None:
     pcd_paths = [Path(input_dir) / p for p in points if p.endswith(".npy")]
 
     print(
-        f"==> Computing topological features using Rips complex for {len(pcd_paths)} samples"
+        f"==> Computing persistence diagrams using Rips complex for {len(pcd_paths)} samples"
     )
     print(f"Max edge length: {max_edge_length}, Max dimension: {max_dimension}")
 
@@ -105,12 +110,12 @@ def main(args) -> None:
         for future in tqdm(
             as_completed(futures), total=len(futures), desc="Processing samples"
         ):
-            is_success, fail_sample_name = future.result()
-            if is_success:
+            result = future.result()
+            if result.is_success:
                 success += 1
             else:
                 failed += 1
-                failed_samples.append(fail_sample_name)
+                failed_samples.append(result.sample_name)
 
     print(
         f"Failed to process {failed} samples, successfully processed {success} samples."

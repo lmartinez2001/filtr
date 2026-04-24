@@ -1,8 +1,8 @@
-import os
 import numpy as np
 
 from tqdm import tqdm
 from pathlib import Path
+from typing import NamedTuple
 from gudhi import AlphaComplex
 from datasets.utils import pc_norm
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -13,7 +13,12 @@ from preprocess.topology.utils import (
 )
 
 
-def compute_alpha_topological_features(points: np.ndarray, rescale: bool = True):
+class SampleResult(NamedTuple):
+    is_success: bool
+    sample_name: str
+
+
+def compute_alpha_diagrams(points: np.ndarray, rescale: bool = True):
     alpha_complex = AlphaComplex(points=points)
     st = alpha_complex.create_simplex_tree()
     st.compute_persistence()
@@ -54,26 +59,26 @@ def compute_alpha_topological_features(points: np.ndarray, rescale: bool = True)
     return pds
 
 
-def process_sample(pcd_path: str, output_dir: str, rescale: bool) -> tuple:
+def process_sample(pcd_path: str, output_dir: str, rescale: bool) -> SampleResult:
     sample_name = Path(pcd_path).stem
     try:
         points = np.load(pcd_path)
         validate_point_cloud_array(points, sample_name)
         points = pc_norm(points)
 
-        pds = compute_alpha_topological_features(points, rescale=rescale)
+        pds = compute_alpha_diagrams(points, rescale=rescale)
 
         save_persistence_diagrams(
-            os.path.join(output_dir, f"{sample_name}.npz"),
+            str(Path(output_dir) / f"{sample_name}.npz"),
             pds,
             dimensions=(0, 1, 2),
         )
 
     except Exception as e:
         print(f"Failed to process sample {sample_name}: {e}")
-        return False, sample_name
+        return SampleResult(False, sample_name)
 
-    return True, ""
+    return SampleResult(True, "")
 
 
 def main(args) -> None:
@@ -82,11 +87,11 @@ def main(args) -> None:
     rescale = args.rescale
     n_workers = args.n_workers
 
-    os.makedirs(output_dir, exist_ok=True)
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     pcd_paths = sorted(Path(input_dir).glob("*.npy"))
 
-    print(f"==> Computing topological features using Alpha complex (rescale={rescale})")
+    print(f"==> Computing persistence diagrams using Alpha complex (rescale={rescale})")
     failed, success = 0, 0
     failed_samples = []
 
@@ -99,12 +104,12 @@ def main(args) -> None:
         for future in tqdm(
             as_completed(futures), total=len(futures), desc="Processing samples"
         ):
-            is_success, fail_sample_name = future.result()
-            if is_success:
+            result = future.result()
+            if result.is_success:
                 success += 1
             else:
                 failed += 1
-                failed_samples.append(fail_sample_name)
+                failed_samples.append(result.sample_name)
 
     print(
         f"Failed to process {failed} samples, successfully processed {success} samples."
