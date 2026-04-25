@@ -7,6 +7,7 @@ import numpy as np
 
 from tqdm import tqdm
 from easydict import EasyDict as edict
+from datasets.utils import pc_norm
 
 
 def _find_pointbert_root() -> Path:
@@ -28,7 +29,7 @@ if str(POINTBERT_ROOT) not in sys.path:
 
 from models.Point_BERT import Point_BERT
 from utils.config import cfg_from_yaml_file
- 
+
 
 def resolve_model_config_path(model_config: str) -> Path:
     config_path = Path(model_config).expanduser()
@@ -210,18 +211,11 @@ class PointBERTFeatureExtractor:
         return features.cls_token
 
 
-def pc_norm(pcd):
-    mean = pcd.mean(axis=0)
-    pcd -= mean
-    max_dist = np.max(np.linalg.norm(pcd, axis=1))
-    pcd /= max_dist
-    return pcd
-
-
 def random_translation(pcd, shift_range=0.1):
     shifts = np.random.uniform(-shift_range, shift_range, 3)
     translated_pcd = pcd + shifts
     return translated_pcd
+
 
 def random_sample_points(pcd: np.ndarray, n_samples: int, rng: np.random.Generator):
     if len(pcd) < n_samples:
@@ -238,13 +232,12 @@ def load_pcd(sample_path: str, n_points: int, rng: np.random.Generator):
     if not isinstance(pcd, np.ndarray):
         raise ValueError(f"Loaded object is not a numpy array: {type(pcd)!r}")
     if pcd.ndim != 2 or pcd.shape[1] != 3:
-        raise ValueError(
-            f"Expected point cloud array of shape [N, 3], got {pcd.shape}"
-        )
+        raise ValueError(f"Expected point cloud array of shape [N, 3], got {pcd.shape}")
     pcd = pc_norm(pcd)
     pcd = random_sample_points(pcd, n_points, rng)
     pcd = torch.from_numpy(pcd).float()  # [N, 3]
     return pcd
+
 
 def parse_arguments():
     import argparse
@@ -300,6 +293,7 @@ def parse_arguments():
     )
     return parser.parse_args()
 
+
 if __name__ == "__main__":
     args = parse_arguments()
     pcd_dir = args.pcd_dir
@@ -310,16 +304,16 @@ if __name__ == "__main__":
     config = load_pointbert_config(args.model_config)
     config.model.dvae_config.ckpt = args.dvae_ckpt
     output_resolution = args.out_points
-    config.model.dvae_config.num_group = output_resolution // config.model.dvae_config.group_size
+    config.model.dvae_config.num_group = (
+        output_resolution // config.model.dvae_config.group_size
+    )
     print(f"==> Output resolution: {output_resolution}")
-    
 
     feature_extractor = PointBERTFeatureExtractor(config.model, args.model_ckpt)
     print("==> Feature extractor initialized")
 
     all_samples = sorted(s for s in os.listdir(pcd_dir) if s.endswith(".npy"))
     all_sample_paths = [os.path.join(pcd_dir, s) for s in all_samples]
-
 
     # all_n_points = args.in_points
     # for n_points in all_n_points:

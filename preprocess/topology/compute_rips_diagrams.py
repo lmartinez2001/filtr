@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 
 from tqdm import tqdm
@@ -13,10 +14,19 @@ from preprocess.topology.utils import (
     validate_point_cloud_array,
 )
 
+LOGGER = logging.getLogger("compute_rips_diagrams")
+
 
 class SampleResult(NamedTuple):
     is_success: bool
     sample_name: str
+
+
+def configure_logging() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
 
 
 def compute_rips_diagrams(
@@ -61,7 +71,7 @@ def process_sample(
         )
 
     except Exception as e:
-        print(f"Failed to process sample {sample_name}: {e}")
+        LOGGER.error("Failed to process sample %s: %s", sample_name, e)
         return SampleResult(False, sample_name)
 
     return SampleResult(True, "")
@@ -83,14 +93,19 @@ def main(args) -> None:
 
     existing_files = {path.name for path in Path(output_dir).glob("*.npz")}
     points = [p for p in points if (p.replace(".npy", ".npz") not in existing_files)]
-    print(f"==> Ignoring already processed files: {len(existing_files)}")
+    LOGGER.info("Ignoring already processed files: %s", len(existing_files))
 
     pcd_paths = [Path(input_dir) / p for p in points if p.endswith(".npy")]
 
-    print(
-        f"==> Computing persistence diagrams using Rips complex for {len(pcd_paths)} samples"
+    LOGGER.info(
+        "Computing persistence diagrams using Rips complex for %s samples",
+        len(pcd_paths),
     )
-    print(f"Max edge length: {max_edge_length}, Max dimension: {max_dimension}")
+    LOGGER.info(
+        "Max edge length: %s, Max dimension: %s",
+        max_edge_length,
+        max_dimension,
+    )
 
     failed, success = 0, 0
     failed_samples = []
@@ -117,8 +132,10 @@ def main(args) -> None:
                 failed += 1
                 failed_samples.append(result.sample_name)
 
-    print(
-        f"Failed to process {failed} samples, successfully processed {success} samples."
+    LOGGER.info(
+        "Failed to process %s samples, successfully processed %s samples.",
+        failed,
+        success,
     )
 
 
@@ -169,5 +186,6 @@ def parse_arguments():
 
 
 if __name__ == "__main__":
+    configure_logging()
     args = parse_arguments()
     main(args)

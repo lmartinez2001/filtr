@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 
 from tqdm import tqdm
@@ -12,10 +13,19 @@ from preprocess.topology.utils import (
     validate_point_cloud_array,
 )
 
+LOGGER = logging.getLogger("compute_alpha_diagrams")
+
 
 class SampleResult(NamedTuple):
     is_success: bool
     sample_name: str
+
+
+def configure_logging() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
 
 
 def compute_alpha_diagrams(points: np.ndarray, rescale: bool = True):
@@ -75,7 +85,7 @@ def process_sample(pcd_path: str, output_dir: str, rescale: bool) -> SampleResul
         )
 
     except Exception as e:
-        print(f"Failed to process sample {sample_name}: {e}")
+        LOGGER.error("Failed to process sample %s: %s", sample_name, e)
         return SampleResult(False, sample_name)
 
     return SampleResult(True, "")
@@ -91,7 +101,10 @@ def main(args) -> None:
 
     pcd_paths = sorted(Path(input_dir).glob("*.npy"))
 
-    print(f"==> Computing persistence diagrams using Alpha complex (rescale={rescale})")
+    LOGGER.info(
+        "Computing persistence diagrams using Alpha complex (rescale=%s)",
+        rescale,
+    )
     failed, success = 0, 0
     failed_samples = []
 
@@ -111,8 +124,10 @@ def main(args) -> None:
                 failed += 1
                 failed_samples.append(result.sample_name)
 
-    print(
-        f"Failed to process {failed} samples, successfully processed {success} samples."
+    LOGGER.info(
+        "Failed to process %s samples, successfully processed %s samples.",
+        failed,
+        success,
     )
 
 
@@ -149,5 +164,6 @@ def parse_arguments():
 
 
 if __name__ == "__main__":
+    configure_logging()
     args = parse_arguments()
     main(args)

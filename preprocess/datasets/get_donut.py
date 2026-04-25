@@ -34,7 +34,7 @@ def parse_args() -> argparse.Namespace:
         help="Dataset revision to download (branch, tag, or commit hash). Default: main.",
     )
     parser.add_argument(
-        "--force-download",
+        "--force_download",
         action="store_true",
         help="Force re-download even if files are already cached by huggingface_hub.",
     )
@@ -84,7 +84,9 @@ def copy_root_metadata(staging_dir: Path, destination: Path, overwrite: bool) ->
             shutil.copy2(item, target)
 
 
-def move_files(flat_source_dir: Path, pattern: str, flat_target_dir: Path, overwrite: bool) -> int:
+def move_files(
+    flat_source_dir: Path, pattern: str, flat_target_dir: Path, overwrite: bool
+) -> int:
     moved = 0
     for source_path in sorted(flat_source_dir.rglob(pattern)):
         target_path = flat_target_dir / source_path.name
@@ -135,9 +137,14 @@ def main() -> int:
     LOGGER.info("Preparing to download dataset %s into %s", REPO_ID, destination)
     LOGGER.info("Using Hugging Face Hub snapshot_download with repo_type='dataset'")
 
-    with TemporaryDirectory(prefix="donut_download_", dir=destination.parent) as tmp_dir:
+    with TemporaryDirectory(
+        prefix="donut_download_", dir=destination.parent
+    ) as tmp_dir:
         staging_dir = Path(tmp_dir) / "snapshot"
-        LOGGER.info("Downloading dataset snapshot to temporary staging directory %s", staging_dir)
+        LOGGER.info(
+            "Downloading dataset snapshot to temporary staging directory %s",
+            staging_dir,
+        )
         snapshot_download(
             repo_id=REPO_ID,
             repo_type="dataset",
