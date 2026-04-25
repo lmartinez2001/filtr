@@ -9,13 +9,14 @@ import numpy as np
 import util.misc as utils
 
 from pathlib import Path
-from hydra.utils import instantiate, to_absolute_path
 from torch.utils.data import DataLoader
 from omegaconf import DictConfig, OmegaConf
 from util.logging_utils import configure_logging
-from util.monitor import get_model_complexity_info, get_e2e_model_complexity_info
+from hydra.utils import instantiate, to_absolute_path
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
+from util.monitor import get_model_complexity_info, get_e2e_model_complexity_info
 from engine import evaluate, train_one_epoch, evaluate_end2end, train_one_epoch_end2end
+from util.logging_utils import StepLogger, DefaultLogger, WandbLogger
 
 try:
     import wandb
@@ -23,48 +24,6 @@ except ImportError:
     wandb = None
 
 logger = logging.getLogger(__name__)
-
-class StepLogger():
-    def __init__(self, run_logger):
-        self.global_step = 0
-        self.run_logger = run_logger
-
-    def __call__(self, stats: dict):
-        log_payload = {f"train_step/{k}": v for k, v in stats.items()}
-        self.run_logger.log(log_payload, step=self.global_step)
-        self.global_step += 1
-
-
-class DefaultLogger:
-    def __init__(self):
-        self.summary = {}
-
-    def log(self, payload: dict, step: int | None = None, commit: bool = True):
-        return None
-
-    def image(self, figure):
-        return figure
-
-    def finish(self):
-        return None
-
-
-class WandbLogger:
-    def __init__(self, project: str, config: dict, run_name: str):
-        if wandb is None:
-            raise ImportError("Weights & Biases is not installed. Install `wandb` or set logger=default.")
-
-        self.run = wandb.init(project=project, config=config, name=run_name)
-        self.summary = self.run.summary
-
-    def log(self, payload: dict, step: int | None = None, commit: bool = True):
-        wandb.log(payload, step=step, commit=commit)
-
-    def image(self, figure):
-        return wandb.Image(figure)
-
-    def finish(self):
-        wandb.finish()
 
 
 def build_logger(cfg: DictConfig):
@@ -82,7 +41,7 @@ def build_logger(cfg: DictConfig):
 
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
-def main(cfg: DictConfig):    
+def main(cfg: DictConfig):
     configure_logging()
     run_logger = build_logger(cfg)
     step_logger = StepLogger(run_logger)
@@ -93,39 +52,41 @@ def main(cfg: DictConfig):
 
     model = instantiate(cfg.model.network)
     model.to(device)
-    
+
     criterion = instantiate(cfg.model.criterion)
 
-    optimizer = torch.optim.AdamW(model.parameters(), 
-                                  lr=cfg.optimizer.lr, 
-                                  weight_decay=cfg.optimizer.weight_decay)
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=cfg.optimizer.lr, weight_decay=cfg.optimizer.weight_decay
+    )
 
     # ==> Datasets and loaders
     train_set = instantiate(cfg.dataset.train)
     train_loader = DataLoader(
-        train_set, 
-        batch_size=cfg.training.batch_size, 
+        train_set,
+        batch_size=cfg.training.batch_size,
         shuffle=True,
         drop_last=True,
-        collate_fn=train_set.collate_fn, 
-        num_workers=cfg.training.num_workers,
-        worker_init_fn=seed_worker,
-        generator=data_loader_generator,
-    )
-    
-    val_set = instantiate(cfg.dataset.val)
-    val_loader = DataLoader(
-        val_set, 
-        batch_size=cfg.training.batch_size, 
-        shuffle=False,
-        drop_last=True, # To change later on
-        collate_fn=val_set.collate_fn, 
+        collate_fn=train_set.collate_fn,
         num_workers=cfg.training.num_workers,
         worker_init_fn=seed_worker,
         generator=data_loader_generator,
     )
 
-    lr_scheduler = build_scheduler(optimizer=optimizer, cfg=cfg, steps_per_epoch=len(train_loader))
+    val_set = instantiate(cfg.dataset.val)
+    val_loader = DataLoader(
+        val_set,
+        batch_size=cfg.training.batch_size,
+        shuffle=False,
+        drop_last=True,  # To change later on
+        collate_fn=val_set.collate_fn,
+        num_workers=cfg.training.num_workers,
+        worker_init_fn=seed_worker,
+        generator=data_loader_generator,
+    )
+
+    lr_scheduler = build_scheduler(
+        optimizer=optimizer, cfg=cfg, steps_per_epoch=len(train_loader)
+    )
     start_epoch = 0
     best_metric_name = cfg.training.best_metric
     best_mode = cfg.training.best_mode
@@ -191,35 +152,39 @@ def main(cfg: DictConfig):
         if track_cuda_memory:
             torch.cuda.reset_accumulated_memory_stats(device)
         epoch_start = time.time()
-        
+
         if cfg.model.get("is_end2end", False):
-            train_stats = train_one_epoch_end2end(model=model, 
-                                                  criterion=criterion, 
-                                                  data_loader=train_loader, 
-                                                  optimizer=optimizer,
-                                                  scheduler=lr_scheduler, 
-                                                  device=device, 
-                                                  epoch=epoch, 
-                                                  max_norm=cfg.training.clip_max_norm,
-                                                  log_batch_metrics=step_logger)
+            train_stats = train_one_epoch_end2end(
+                model=model,
+                criterion=criterion,
+                data_loader=train_loader,
+                optimizer=optimizer,
+                scheduler=lr_scheduler,
+                device=device,
+                epoch=epoch,
+                max_norm=cfg.training.clip_max_norm,
+                log_batch_metrics=step_logger,
+            )
         else:
-            train_stats = train_one_epoch(model=model, 
-                                        criterion=criterion, 
-                                        data_loader=train_loader, 
-                                        optimizer=optimizer,
-                                        scheduler=lr_scheduler, 
-                                        device=device, 
-                                        epoch=epoch, 
-                                        max_norm=cfg.training.clip_max_norm,
-                                        log_batch_metrics=step_logger)
-        
+            train_stats = train_one_epoch(
+                model=model,
+                criterion=criterion,
+                data_loader=train_loader,
+                optimizer=optimizer,
+                scheduler=lr_scheduler,
+                device=device,
+                epoch=epoch,
+                max_norm=cfg.training.clip_max_norm,
+                log_batch_metrics=step_logger,
+            )
+
         epoch_duration = time.time() - epoch_start
 
         log_payload = {f"train_epoch/{k}": v for k, v in train_stats.items()}
         log_payload["train_epoch/epoch_duration"] = epoch_duration
-        
+
         if epoch == 0 and track_cuda_memory:
-            max_mem_gb = torch.cuda.max_memory_allocated(device) / (1024 ** 3)
+            max_mem_gb = torch.cuda.max_memory_allocated(device) / (1024**3)
             logger.info("Max memory allocated: %.2f GB", max_mem_gb)
 
         run_logger.log(log_payload, step=step_logger.global_step)
@@ -241,23 +206,33 @@ def main(cfg: DictConfig):
                 best_metric_value=best_metric_value,
             )
 
-
-        # ==> Evauation 
+        # ==> Evauation
         val_stats = None
         if epoch % cfg.training.eval_every == 0:
             logger.info("Starting evaluation")
             if cfg.model.get("is_end2end", False):
-                val_stats, figs = evaluate_end2end(model=model, 
-                                                  criterion=criterion, 
-                                                  data_loader=val_loader, 
-                                                  device=device)
+                val_stats, figs = evaluate_end2end(
+                    model=model,
+                    criterion=criterion,
+                    data_loader=val_loader,
+                    device=device,
+                )
             else:
-                val_stats, figs = evaluate(model=model, 
-                                        criterion=criterion, 
-                                        data_loader=val_loader, 
-                                        device=device)
-            run_logger.log({f"val/{k}": v for k, v in val_stats.items()}, step=step_logger.global_step, commit=False)
-            run_logger.log({"val/diagrams": [run_logger.image(fig) for fig in figs]}, step=step_logger.global_step)
+                val_stats, figs = evaluate(
+                    model=model,
+                    criterion=criterion,
+                    data_loader=val_loader,
+                    device=device,
+                )
+            run_logger.log(
+                {f"val/{k}": v for k, v in val_stats.items()},
+                step=step_logger.global_step,
+                commit=False,
+            )
+            run_logger.log(
+                {"val/diagrams": [run_logger.image(fig) for fig in figs]},
+                step=step_logger.global_step,
+            )
 
             current_metric_value = val_stats.get(best_metric_name)
             if current_metric_value is None:
@@ -297,7 +272,6 @@ def main(cfg: DictConfig):
                     best_metric_value,
                 )
 
-
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     run_logger.summary["total_training_time"] = total_time_str
@@ -305,21 +279,27 @@ def main(cfg: DictConfig):
     run_logger.finish()
 
 
-def build_scheduler(optimizer: torch.optim.Optimizer, cfg: DictConfig, steps_per_epoch: int):
+def build_scheduler(
+    optimizer: torch.optim.Optimizer, cfg: DictConfig, steps_per_epoch: int
+):
     total_steps = cfg.training.epochs * steps_per_epoch
     warmup_steps = cfg.scheduler.warmup_epochs * steps_per_epoch
 
     if cfg.scheduler.type == "cosine":
-        warmup_scheduler = LinearLR(optimizer, 
-                                    start_factor=cfg.scheduler.start_factor, 
-                                    end_factor=1.0,
-                                    total_iters=warmup_steps
-                                    )
-        main_scheduler = CosineAnnealingLR(optimizer, 
-                                           T_max=total_steps - warmup_steps, 
-                                           eta_min=cfg.scheduler.eta_min)
-        scheduler = SequentialLR(optimizer=optimizer, 
-                                 schedulers=[warmup_scheduler, main_scheduler], milestones=[warmup_steps])
+        warmup_scheduler = LinearLR(
+            optimizer,
+            start_factor=cfg.scheduler.start_factor,
+            end_factor=1.0,
+            total_iters=warmup_steps,
+        )
+        main_scheduler = CosineAnnealingLR(
+            optimizer, T_max=total_steps - warmup_steps, eta_min=cfg.scheduler.eta_min
+        )
+        scheduler = SequentialLR(
+            optimizer=optimizer,
+            schedulers=[warmup_scheduler, main_scheduler],
+            milestones=[warmup_steps],
+        )
     elif cfg.scheduler.type == "none":
         logger.info("No scheduler is used.")
         scheduler = None
@@ -356,15 +336,23 @@ def load_checkpoint(
     scheduler_state = checkpoint.get("lr_scheduler")
     if scheduler_state is not None:
         if scheduler is None:
-            logger.warning("Checkpoint contains scheduler state but current config disables the scheduler. Skipping scheduler restore.")
+            logger.warning(
+                "Checkpoint contains scheduler state but current config disables the scheduler. Skipping scheduler restore."
+            )
         else:
             scheduler.load_state_dict(scheduler_state)
     elif scheduler is not None:
-        logger.warning("No scheduler state found in checkpoint. Continuing with a fresh scheduler.")
+        logger.warning(
+            "No scheduler state found in checkpoint. Continuing with a fresh scheduler."
+        )
 
     step_logger.global_step = checkpoint.get("global_step", 0)
     start_epoch = checkpoint.get("epoch", -1) + 1
-    logger.info("Resuming from epoch %s with global step %s", start_epoch, step_logger.global_step)
+    logger.info(
+        "Resuming from epoch %s with global step %s",
+        start_epoch,
+        step_logger.global_step,
+    )
     return start_epoch
 
 
@@ -389,16 +377,19 @@ def save_checkpoint(
     best_mode: str,
     best_metric_value: float,
 ):
-    torch.save({
-        "model": model.state_dict(),
-        "optimizer": optimizer.state_dict(),
-        "lr_scheduler": scheduler.state_dict() if scheduler is not None else None,
-        "epoch": epoch,
-        "global_step": global_step,
-        "best_metric_name": best_metric_name,
-        "best_metric_mode": best_mode,
-        "best_metric_value": best_metric_value,
-    }, checkpoint_path)
+    torch.save(
+        {
+            "model": model.state_dict(),
+            "optimizer": optimizer.state_dict(),
+            "lr_scheduler": scheduler.state_dict() if scheduler is not None else None,
+            "epoch": epoch,
+            "global_step": global_step,
+            "best_metric_name": best_metric_name,
+            "best_metric_mode": best_mode,
+            "best_metric_value": best_metric_value,
+        },
+        checkpoint_path,
+    )
 
 
 def is_better_metric(current_value: float, best_value: float, mode: str) -> bool:
@@ -426,9 +417,10 @@ def set_seed(seed: int, deterministic: bool = False):
 
 
 def seed_worker(worker_id: int):
-    worker_seed = torch.initial_seed() % (2 ** 32)
+    worker_seed = torch.initial_seed() % (2**32)
     np.random.seed(worker_seed)
     random.seed(worker_seed)
+
 
 if __name__ == "__main__":
     main()

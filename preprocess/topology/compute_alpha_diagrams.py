@@ -12,6 +12,7 @@ from preprocess.topology.utils import (
     save_persistence_diagrams,
     validate_point_cloud_array,
 )
+from util.logging_utils import configure_logging
 
 LOGGER = logging.getLogger("compute_alpha_diagrams")
 
@@ -19,13 +20,6 @@ LOGGER = logging.getLogger("compute_alpha_diagrams")
 class SampleResult(NamedTuple):
     is_success: bool
     sample_name: str
-
-
-def configure_logging() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    )
 
 
 def compute_alpha_diagrams(points: np.ndarray, rescale: bool = True):
