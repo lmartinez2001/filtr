@@ -19,30 +19,34 @@ class NonFiniteLossError(RuntimeError):
     """Raised when training encounters a non-finite loss value."""
 
 
-def train_one_epoch(model: Module, 
-                    criterion: Module,
-                    data_loader: Iterable, 
-                    optimizer: Optimizer,
-                    scheduler: _LRScheduler,
-                    device: torch.device, 
-                    epoch: int, 
-                    max_norm: float,
-                    log_batch_metrics: callable):
+def train_one_epoch(
+    model: Module,
+    criterion: Module,
+    data_loader: Iterable,
+    optimizer: Optimizer,
+    scheduler: _LRScheduler,
+    device: torch.device,
+    epoch: int,
+    max_norm: float,
+    log_batch_metrics: callable,
+):
     model.train()
     criterion.train()
 
-    n_batches = len(data_loader) # Assumes drop_last=True in DataLoader
+    n_batches = len(data_loader)  # Assumes drop_last=True in DataLoader
     meters = defaultdict(float)
 
-    for batch in tqdm(data_loader, desc=f"Epoch {epoch+1}", unit="batch", total=n_batches):
+    for batch in tqdm(
+        data_loader, desc=f"Epoch {epoch+1}", unit="batch", total=n_batches
+    ):
         tokens = batch["tokens"].to(device)
         pos_embeddings = batch["pos_embeddings"].to(device)
         targets = [{"pairs": pairs.to(device)} for pairs in batch["pairs"]]
 
         outputs = model(features=tokens, pos=pos_embeddings)
-        loss_dict = criterion(outputs, targets) # {existence: ..., recon: ..., }
-        total_loss = sum(loss_dict.values()) # existence + recon + ...
-        
+        loss_dict = criterion(outputs, targets)  # {existence: ..., recon: ..., }
+        total_loss = sum(loss_dict.values())  # existence + recon + ...
+
         batch_stats = {k: v.item() for k, v in loss_dict.items()}
         batch_stats["total_loss"] = total_loss.item()
 
@@ -74,28 +78,31 @@ def train_one_epoch(model: Module,
     return epoch_stats
 
 
-def train_one_epoch_end2end(model: Module, 
-                            criterion: Module,
-                            data_loader: Iterable, 
-                            optimizer: Optimizer,
-                            scheduler: _LRScheduler,
-                            device: torch.device, 
-                            epoch: int, 
-                            max_norm: float,
-                            log_batch_metrics: callable):
+def train_one_epoch_end2end(
+    model: Module,
+    criterion: Module,
+    data_loader: Iterable,
+    optimizer: Optimizer,
+    scheduler: _LRScheduler,
+    device: torch.device,
+    epoch: int,
+    max_norm: float,
+    log_batch_metrics: callable,
+):
     model.train()
     criterion.train()
 
     n_batches = len(data_loader)
     meters = defaultdict(float)
 
-    for batch in tqdm(data_loader, desc=f"Epoch {epoch+1}", unit="batch", total=n_batches):
+    for batch in tqdm(
+        data_loader, desc=f"Epoch {epoch+1}", unit="batch", total=n_batches
+    ):
         inputs = batch["pcd"].to(device)
         targets = [{"pairs": pairs.to(device)} for pairs in batch["pairs"]]
 
         outputs = model(inputs)
         loss_dict = criterion(outputs, targets)
-        losses = sum(loss_dict.values())
         total_loss = sum(loss_dict.values())
 
         batch_stats = {k: v.item() for k, v in loss_dict.items()}
@@ -109,7 +116,7 @@ def train_one_epoch_end2end(model: Module,
             )
 
         optimizer.zero_grad()
-        losses.backward()
+        total_loss.backward()
         if max_norm > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
         optimizer.step()
@@ -119,7 +126,7 @@ def train_one_epoch_end2end(model: Module,
 
         if scheduler is not None:
             scheduler.step()
-        
+
         batch_stats["lr"] = optimizer.param_groups[0]["lr"]
         log_batch_metrics(batch_stats)
 
@@ -128,11 +135,13 @@ def train_one_epoch_end2end(model: Module,
 
 
 @torch.no_grad()
-def evaluate(model: Module, 
-             criterion: Module, 
-             data_loader: DataLoader, 
-             device: torch.device, 
-             max_n_figs: int = 32):
+def evaluate(
+    model: Module,
+    criterion: Module,
+    data_loader: DataLoader,
+    device: torch.device,
+    max_n_figs: int = 32,
+):
     model.eval()
     criterion.eval()
 
@@ -164,11 +173,13 @@ def evaluate(model: Module,
 
 
 @torch.no_grad()
-def evaluate_end2end(model: Module, 
-                     criterion: Module, 
-                     data_loader: DataLoader, 
-                     device: torch.device,
-                     max_n_figs: int = 32):
+def evaluate_end2end(
+    model: Module,
+    criterion: Module,
+    data_loader: DataLoader,
+    device: torch.device,
+    max_n_figs: int = 32,
+):
     model.eval()
     criterion.eval()
 
