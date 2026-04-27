@@ -3,16 +3,16 @@
 <p align="center"><strong>CVPR 2026 (Oral)</strong></p>
 
 <p align="center">
-  <a href="https://filtr-topology.github.io/" target="_blank">
+  <a href="https://filtr-topology.github.io/">
     <img src="https://img.shields.io/badge/Project_Website-FILTR-0A7E8C?style=for-the-badge" alt="Project Website">
   </a>
-  <a href="https://huggingface.co/datasets/LouisM2001/donut" target="_blank">
+  <a href="https://huggingface.co/datasets/LouisM2001/donut">
     <img src="https://img.shields.io/badge/Dataset-Donut-F59E0B?style=for-the-badge" alt="Dataset">
   </a>
-  <a href="https://arxiv.org/abs/0000.00000" target="_blank">
-    <img src="https://img.shields.io/badge/arXiv-Soon-B31B1B?style=for-the-badge&logo=arxiv" alt="arXiv Paper">
+  <a href="https://arxiv.org/abs/2604.22334">
+    <img src="https://img.shields.io/badge/arXiv-B31B1B?style=for-the-badge&logo=arxiv" alt="arXiv Paper">
   </a>
-  <a href="LICENSE" target="_blank">
+  <a href="LICENSE">
     <img src="https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge" alt="MIT License">
   </a>
 </p>
