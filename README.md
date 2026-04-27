@@ -9,8 +9,8 @@
   <a href="https://huggingface.co/datasets/LouisM2001/donut">
     <img src="https://img.shields.io/badge/Dataset-Donut-F59E0B?style=for-the-badge" alt="Dataset">
   </a>
-  <a href="https://arxiv.org/abs/0000.00000">
-    <img src="https://img.shields.io/badge/arXiv-Soon-B31B1B?style=for-the-badge&logo=arxiv" alt="arXiv Paper">
+  <a href="https://arxiv.org/abs/2604.22334">
+    <img src="https://img.shields.io/badge/arXiv-B31B1B?style=for-the-badge&logo=arxiv" alt="arXiv Paper">
   </a>
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/License-MIT-22C55E?style=for-the-badge" alt="MIT License">
