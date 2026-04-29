@@ -28,4 +28,3 @@ feature_extraction
 outputs
 predictions
 recon_res
-devcontainer.json
