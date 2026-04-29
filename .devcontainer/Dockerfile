@@ -8,8 +8,13 @@ ENV DEBIAN_FRONTEND=noninteractive \
 ARG USERNAME=filtr_user
 ARG USER_UID=1000
 ARG USER_GID=1000
+ARG TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6"
 
-ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
+ENV CUDA_HOME=/usr/local/cuda \
+    FORCE_CUDA=1 \
+    TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} \
+    PATH="/usr/local/cuda/bin:/home/${USERNAME}/.local/bin:${PATH}" \
+    LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
 
 # Install system dependencies, Python 3.8, and gcc-9 / g++-9
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -51,7 +56,7 @@ WORKDIR /home/${USERNAME}/filtr
 COPY --chown=${USERNAME}:${USERNAME} requirements.txt ./requirements.txt
 COPY --chown=${USERNAME}:${USERNAME} extensions ./extensions
 
-RUN python3 -m pip install --no-cache-dir --user -r requirements.txt
-# && bash extensions/install_extensions.sh
+RUN python3 -m pip install --no-cache-dir --user -r requirements.txt \
+    && bash extensions/install_extensions.sh
 
 CMD ["/bin/bash"]
