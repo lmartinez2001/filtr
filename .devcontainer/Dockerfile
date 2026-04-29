@@ -9,6 +9,8 @@ ARG USERNAME=filtr_user
 ARG USER_UID=1000
 ARG USER_GID=1000
 
+ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
+
 # Install system dependencies, Python 3.8, and gcc-9 / g++-9
 RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common \
@@ -44,6 +46,12 @@ RUN apt-get update && apt-get install -y sudo
 RUN echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME
 
 USER ${USERNAME}
-WORKDIR /home/${USERNAME}
+WORKDIR /home/${USERNAME}/filtr
+
+COPY --chown=${USERNAME}:${USERNAME} requirements.txt ./requirements.txt
+COPY --chown=${USERNAME}:${USERNAME} extensions ./extensions
+
+RUN python3 -m pip install --no-cache-dir --user -r requirements.txt \
+    && bash extensions/install_extensions.sh
 
 CMD ["/bin/bash"]
