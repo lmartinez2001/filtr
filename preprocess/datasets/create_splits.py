@@ -2,6 +2,8 @@ import argparse
 import json
 import logging
 from pathlib import Path
+from typing import List, Dict
+
 
 
 LOGGER = logging.getLogger("create_splits")
@@ -69,7 +71,7 @@ def ensure_suffix(value: str) -> str:
     return value if value.startswith(".") else f".{value}"
 
 
-def read_split_file(split_path: Path) -> list[str]:
+def read_split_file(split_path: Path) -> List[str]:
     with split_path.open("r", encoding="utf-8") as handle:
         sample_ids = [line.strip() for line in handle if line.strip()]
 
@@ -85,7 +87,7 @@ def build_record(
     diagram_dir: Path,
     pcd_suffix: str,
     diagram_suffix: str,
-) -> dict[str, str]:
+) -> Dict[str, str]:
     pcd_path = pcd_dir / f"{sample_id}{pcd_suffix}"
     diagram_path = diagram_dir / f"{sample_id}{diagram_suffix}"
 
@@ -106,7 +108,7 @@ def build_record(
 
 
 def write_split_json(
-    records: list[dict[str, str]], output_path: Path, overwrite: bool
+    records: List[Dict[str, str]], output_path: Path, overwrite: bool
 ) -> None:
     if output_path.exists() and not overwrite:
         raise FileExistsError(
