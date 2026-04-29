@@ -31,6 +31,9 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 100 \
 # Upgrade pip
 RUN python3 -m pip install --no-cache-dir --upgrade pip
 
+RUN pip install --no-cache-dir torch==1.12.0+cu113 torchvision==0.13.0+cu113 \
+    --find-links https://download.pytorch.org/whl/torch_stable.html
+
 # Create a non-root user
 RUN groupadd --gid ${USER_GID} ${USERNAME} \
     && useradd --uid ${USER_UID} --gid ${USER_GID} --create-home --shell /bin/bash $USERNAME \
