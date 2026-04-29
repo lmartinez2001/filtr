@@ -1,7 +1,12 @@
 import torch
 from torch import nn
 from scipy.optimize import linear_sum_assignment
-from torch_linear_assignment import batch_linear_assignment, assignment_to_indices
+
+try:
+    from torch_linear_assignment import batch_linear_assignment, assignment_to_indices
+except ImportError:
+    batch_linear_assignment = None
+    assignment_to_indices = None
 
 
 class HungarianMatcherPersistence(nn.Module):
@@ -75,6 +80,10 @@ class HungarianMatcherPersistence(nn.Module):
             if self.use_cpu:
                 gt_idx, pred_idx = linear_sum_assignment(cost.cpu().numpy()) # row_indices, col_indices
             else:
+                if batch_linear_assignment is None or assignment_to_indices is None:
+                    raise ImportError(
+                        "torch_linear_assignment is required when use_cpu=False"
+                    )
                 assignment = batch_linear_assignment(cost.unsqueeze(0))
                 gt_idx, pred_idx = assignment_to_indices(assignment)
                 gt_idx = gt_idx.squeeze(0)

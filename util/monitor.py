@@ -1,10 +1,17 @@
 import logging
 import torch
-from fvcore.nn import FlopCountAnalysis
+
+try:
+    from fvcore.nn import FlopCountAnalysis
+except ImportError:
+    FlopCountAnalysis = None
 
 logger = logging.getLogger(__name__)
 
 def get_model_complexity_info(model, tokens, pos):
+    if FlopCountAnalysis is None:
+        raise ImportError("fvcore is required to compute model complexity.")
+
     model.eval()
 
     flops_analyzer = FlopCountAnalysis(model, (tokens,pos))
@@ -36,6 +43,9 @@ def get_model_complexity_info(model, tokens, pos):
 
 
 def get_e2e_model_complexity_info(model, inputs):
+    if FlopCountAnalysis is None:
+        raise ImportError("fvcore is required to compute model complexity.")
+
     model.eval()
 
     flops_analyzer = FlopCountAnalysis(model, inputs)
