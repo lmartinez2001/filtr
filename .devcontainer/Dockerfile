@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-pip python3-venv \
     gcc-9 g++-9 \
     build-essential git curl wget vim ca-certificates \
+    ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
 # Ensure python3 maps to python3.8
