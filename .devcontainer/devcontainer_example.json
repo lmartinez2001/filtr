@@ -20,7 +20,7 @@
       }
     }
   },
-  "remoteUser": "filtr-user",
+  "remoteUser": "filtr_user",
   "workspaceFolder": "/workspaces/filtr",
   "mounts": [],
   "updateRemoteUserUID": true

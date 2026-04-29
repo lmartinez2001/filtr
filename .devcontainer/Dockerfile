@@ -5,7 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1
 
 # Build arguments for the user
-ARG USERNAME=filtr-user
+ARG USERNAME=filtr_user
 ARG USER_UID=1000
 ARG USER_GID=1000
 
