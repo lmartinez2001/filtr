@@ -13,3 +13,6 @@
 [submodule "third_party/point2vec"]
 	path = third_party/point2vec
 	url = https://github.com/karimknaebel/point2vec.git
+[submodule "extensions/KNN_CUDA"]
+	path = extensions/KNN_CUDA
+	url = https://github.com/unlimblue/KNN_CUDA.git
