@@ -51,7 +51,7 @@ WORKDIR /home/${USERNAME}/filtr
 COPY --chown=${USERNAME}:${USERNAME} requirements.txt ./requirements.txt
 COPY --chown=${USERNAME}:${USERNAME} extensions ./extensions
 
-RUN python3 -m pip install --no-cache-dir --user -r requirements.txt \
-    && bash extensions/install_extensions.sh
+RUN python3 -m pip install --no-cache-dir --user -r requirements.txt
+# && bash extensions/install_extensions.sh
 
 CMD ["/bin/bash"]
