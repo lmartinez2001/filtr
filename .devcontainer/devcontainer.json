@@ -22,6 +22,7 @@
   },
   "remoteUser": "filtr_user",
   "workspaceFolder": "/workspaces/filtr",
+  "postCreateCommand": "bash extensions/install_extensions.sh",
   "mounts": [],
   "updateRemoteUserUID": true
 }
