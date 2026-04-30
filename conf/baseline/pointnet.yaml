@@ -1,0 +1,5 @@
+_target_: models.baselines.PointNet
+dropout: 0.0
+input_dim: 3
+intermediate_dim: 64
+feature_dim: 256

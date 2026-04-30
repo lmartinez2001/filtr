@@ -1,0 +1,18 @@
+defaults:
+  - _self_
+
+_common_params_: &common_params
+    _target_: datasets.donut.DonutEnd2End
+    root: data/donut
+    diagram_key: "pd1"
+    quantile_alpha: 0.1
+
+train:
+  <<: *common_params
+  split: "train"
+  index_filename: "train_end2end_reduced.json" # Ensure this file exists in your data_root
+
+val:
+  <<: *common_params
+  split: "val"
+  index_filename: "val_end2end_reduced.json" # Ensure this file exists in your data_root

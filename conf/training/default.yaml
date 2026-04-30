@@ -1,0 +1,11 @@
+epochs: 200
+batch_size: 64
+clip_max_norm: 10.0
+eval_every: 10
+num_workers: 1
+resume_from: null
+load_weights_only: false
+strict_checkpoint_load: true
+deterministic: true
+best_metric: total_loss
+best_mode: min
