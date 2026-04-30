@@ -7,7 +7,6 @@
 *.pth
 **/__pycache__/**
 .ipynb_checkpoints/
-datasets/data/
 experiment-*
 *.tmp
 *.pkl
@@ -16,7 +15,6 @@ experiment-*
 not_tracked_dir/
 .vscode
 .codex
-ckpts
 *.pdf
 wandb
 stats
@@ -30,4 +28,6 @@ predictions
 recon_res
 /data/*
 !/data/.gitkeep
+/ckpts/*
+!/ckpts/.gitkeep
 .pytest_cache/
