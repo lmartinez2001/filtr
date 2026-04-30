@@ -16,17 +16,21 @@ def test_create_splits_cli_generates_json_manifests(toy_dataset_root):
             str(toy_dataset_root / "diagrams"),
             "--pcd_dir",
             str(toy_dataset_root / "pcd"),
+            "--tokens_dir",
+            str(toy_dataset_root / "tokens"),
             "--split_dir",
             str(toy_dataset_root / "splits"),
             "--output_dir",
             str(output_dir),
+            "--output_suffix",
+            "_out2048_in1024_pbert",
         ],
         check=True,
         cwd=Path.cwd(),
     )
 
-    train_manifest = output_dir / "train.json"
-    val_manifest = output_dir / "val.json"
+    train_manifest = output_dir / "train_out2048_in1024_pbert.json"
+    val_manifest = output_dir / "val_out2048_in1024_pbert.json"
 
     assert train_manifest.exists()
     assert val_manifest.exists()
@@ -38,3 +42,4 @@ def test_create_splits_cli_generates_json_manifests(toy_dataset_root):
     assert len(val_records) == 1
     assert Path(train_records[0]["pcd_path"]).exists()
     assert Path(train_records[0]["diagram_path"]).exists()
+    assert Path(train_records[0]["tokens_path"]).exists()

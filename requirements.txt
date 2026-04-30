@@ -18,3 +18,4 @@ hydra-core
 huggingface_hub
 gudhi
 gdown
+wandb

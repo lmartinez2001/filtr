@@ -152,6 +152,7 @@ def main() -> int:
             local_dir=staging_dir,
             allow_patterns=["obj/**", "pcd/**", "*.csv", "*.md", "*.txt", "*.json"],
             force_download=args.force_download,
+            max_workers=1,
         )
 
         copy_root_metadata(staging_dir, destination, overwrite=args.overwrite)

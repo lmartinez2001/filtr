@@ -31,3 +31,6 @@ recon_res
 /ckpts/*
 !/ckpts/.gitkeep
 .pytest_cache/
+*.cuda.o
+*.so
+build.ninja

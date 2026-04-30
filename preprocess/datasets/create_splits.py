@@ -29,6 +29,15 @@ def parse_args() -> argparse.Namespace:
         help="Directory containing point clouds saved as .npy files.",
     )
     parser.add_argument(
+        "--tokens_dir",
+        type=Path,
+        default=None,
+        help=(
+            "Optional directory containing token features saved as .npz files. "
+            "When provided, each manifest record includes tokens_path."
+        ),
+    )
+    parser.add_argument(
         "--split_dir",
         required=True,
         type=Path,
@@ -51,6 +60,24 @@ def parse_args() -> argparse.Namespace:
         default=".npz",
         type=str,
         help="File suffix for persistence diagrams. Default: .npz",
+    )
+    parser.add_argument(
+        "--tokens_suffix",
+        default=".npz",
+        type=str,
+        help="File suffix for token features. Default: .npz",
+    )
+    parser.add_argument(
+        "--output_prefix",
+        default="",
+        type=str,
+        help="Optional prefix to prepend to each output JSON filename.",
+    )
+    parser.add_argument(
+        "--output_suffix",
+        default="",
+        type=str,
+        help="Optional suffix to append to each output JSON filename before .json.",
     )
     parser.add_argument(
         "--overwrite",
@@ -85,8 +112,10 @@ def build_record(
     sample_id: str,
     pcd_dir: Path,
     diagram_dir: Path,
+    tokens_dir: Path,
     pcd_suffix: str,
     diagram_suffix: str,
+    tokens_suffix: str,
 ) -> Dict[str, str]:
     pcd_path = pcd_dir / f"{sample_id}{pcd_suffix}"
     diagram_path = diagram_dir / f"{sample_id}{diagram_suffix}"
@@ -100,11 +129,21 @@ def build_record(
             f"Persistence diagram file not found for '{sample_id}': {diagram_path}"
         )
 
-    return {
+    record = {
         "id": sample_id,
         "pcd_path": str(pcd_path),
         "diagram_path": str(diagram_path),
     }
+
+    if tokens_dir is not None:
+        tokens_path = tokens_dir / f"{sample_id}{tokens_suffix}"
+        if not tokens_path.exists():
+            raise FileNotFoundError(
+                f"Token feature file not found for '{sample_id}': {tokens_path}"
+            )
+        record["tokens_path"] = str(tokens_path)
+
+    return record
 
 
 def write_split_json(
@@ -127,12 +166,18 @@ def main() -> int:
 
     diagram_dir = args.diagram_dir.expanduser().resolve()
     pcd_dir = args.pcd_dir.expanduser().resolve()
+    tokens_dir = args.tokens_dir.expanduser().resolve() if args.tokens_dir else None
     split_dir = args.split_dir.expanduser().resolve()
     output_dir = args.output_dir.expanduser().resolve()
     pcd_suffix = ensure_suffix(args.pcd_suffix)
     diagram_suffix = ensure_suffix(args.diagram_suffix)
+    tokens_suffix = ensure_suffix(args.tokens_suffix)
 
-    for path in (diagram_dir, pcd_dir, split_dir):
+    required_dirs = [diagram_dir, pcd_dir, split_dir]
+    if tokens_dir is not None:
+        required_dirs.append(tokens_dir)
+
+    for path in required_dirs:
         if not path.exists():
             raise FileNotFoundError(f"Directory not found: {path}")
         if not path.is_dir():
@@ -152,13 +197,15 @@ def main() -> int:
                 sample_id=sample_id,
                 pcd_dir=pcd_dir,
                 diagram_dir=diagram_dir,
+                tokens_dir=tokens_dir,
                 pcd_suffix=pcd_suffix,
                 diagram_suffix=diagram_suffix,
+                tokens_suffix=tokens_suffix,
             )
             for sample_id in sample_ids
         ]
 
-        output_path = output_dir / f"{split_name}.json"
+        output_path = output_dir / f"{args.output_prefix}{split_name}{args.output_suffix}.json"
         write_split_json(records, output_path, overwrite=args.overwrite)
         LOGGER.info("Wrote %s records to %s", len(records), output_path)
 
