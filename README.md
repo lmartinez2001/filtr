@@ -25,6 +25,16 @@ FILTR predicts persistence diagrams from pretrained point-cloud encoder features
   <img src="static/model.png" alt="FILTR model overview">
 </p>
 
+## Roadmap
+
+Most urgent follow-up work:
+
+- [ ] Publish stable pretrained checkpoints and document exact filenames/checksums ([#5](https://github.com/lmartinez2001/filtr/issues/5))
+- [ ] Fix and validate the end-to-end training and validation pipeline ([#14](https://github.com/lmartinez2001/filtr/issues/14))
+- [ ] Add feature extraction scripts for Point-MAE, PCP-MAE, PointGPT, point2vec, and other supported backbones ([#13](https://github.com/lmartinez2001/filtr/issues/13))
+- [ ] Improve generated artifact storage management for features, diagrams, logs, and checkpoints ([#7](https://github.com/lmartinez2001/filtr/issues/7))
+- [ ] Remove tracked compiled artifacts from the repository history/index ([#2](https://github.com/lmartinez2001/filtr/issues/2))
+
 ## Recommended Setup: Dev Container
 
 Clone with submodules:
