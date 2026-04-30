@@ -15,3 +15,6 @@ transforms3d
 termcolor
 pytest
 hydra-core
+huggingface_hub
+gudhi
+gdown
