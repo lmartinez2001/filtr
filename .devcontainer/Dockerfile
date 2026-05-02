@@ -49,12 +49,18 @@ RUN groupadd --gid ${USER_GID} ${USERNAME} \
 
 RUN apt-get update && apt-get install -y sudo
 RUN echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME
+RUN mkdir -p /workspaces/filtr \
+    && chown -R ${USERNAME}:${USERNAME} /workspaces
 
 USER ${USERNAME}
-WORKDIR /home/${USERNAME}/filtr
+WORKDIR /workspaces/filtr
 
 COPY --chown=${USERNAME}:${USERNAME} requirements.txt ./requirements.txt
 
 RUN python3 -m pip install --no-cache-dir --user -r requirements.txt
+
+COPY --chown=${USERNAME}:${USERNAME} . .
+
+RUN mkdir -p data ckpts experiments
 
 CMD ["/bin/bash"]

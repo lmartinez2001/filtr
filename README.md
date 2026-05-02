@@ -68,9 +68,9 @@ Dev Containers: Rebuild and Reopen in Container
 
 The devcontainer runs `bash extensions/install_extensions.sh` after creation so CUDA extensions are built after GPU access is available.
 
-## Using a Prebuilt Dev Image
+## Using a Prebuilt Image
 
-Release images are intended as **dev-base images**: they provide CUDA, Python, PyTorch, and Python dependencies. The repository source is still mounted by the devcontainer.
+Release images include CUDA, Python, PyTorch, Python dependencies, and the repository source under `/workspaces/filtr`. Runtime data, checkpoints, and experiment outputs should still be bind-mounted from the host.
 
 Use this in `.devcontainer/devcontainer.json` instead of the `build` block:
 
@@ -87,6 +87,23 @@ Keep the same GPU arguments and mounts:
   "source=/path/to/filtr-ckpts,target=/workspaces/filtr/ckpts,type=bind,consistency=cached"
 ],
 "postCreateCommand": "bash extensions/install_extensions.sh"
+```
+
+For plain Docker:
+
+```bash
+docker run --gpus all -it \
+  --shm-size=8g \
+  -v /path/to/filtr-data:/workspaces/filtr/data \
+  -v /path/to/filtr-ckpts:/workspaces/filtr/ckpts \
+  -v /path/to/filtr-experiments:/workspaces/filtr/experiments \
+  ghcr.io/lmartinez2001/filtr:v1.0.0
+```
+
+Inside the container, run CUDA extension installation once before training:
+
+```bash
+bash extensions/install_extensions.sh
 ```
 
 ## Download Checkpoints
