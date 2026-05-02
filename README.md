@@ -75,7 +75,7 @@ Release images include CUDA, Python, PyTorch, Python dependencies, and the repos
 Use this in `.devcontainer/devcontainer.json` instead of the `build` block:
 
 ```json
-"image": "ghcr.io/lmartinez2001/filtr:v1.0.0"
+"image": "ghcr.io/lmartinez2001/filtr:latest"
 ```
 
 Keep the same GPU arguments and mounts:
@@ -97,7 +97,7 @@ docker run --gpus all -it \
   -v /path/to/filtr-data:/workspaces/filtr/data \
   -v /path/to/filtr-ckpts:/workspaces/filtr/ckpts \
   -v /path/to/filtr-experiments:/workspaces/filtr/experiments \
-  ghcr.io/lmartinez2001/filtr:v1.0.0
+  ghcr.io/lmartinez2001/filtr:latest
 ```
 
 Inside the container, run CUDA extension installation once before training:
@@ -106,7 +106,7 @@ Inside the container, run CUDA extension installation once before training:
 bash extensions/install_extensions.sh
 ```
 
-## Download Checkpoints
+## Download Pretrained Encoders Checkpoints
 
 Inside the container:
 
